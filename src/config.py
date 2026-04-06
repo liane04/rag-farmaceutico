@@ -18,9 +18,9 @@ QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "farmacos")
 
 # --- Modelos ---
-EMBEDDING_MODEL = "models/text-embedding-004"       # Gemini Embedding 2
+EMBEDDING_MODEL = "models/gemini-embedding-2-preview"
 GENERATIVE_MODEL = "claude-3-5-sonnet-20241022"     # Claude 3.5 Sonnet
-EMBEDDING_DIMENSION = 768
+EMBEDDING_DIMENSION = 3072
 
 # --- Chunking ---
 # RecursiveCharacterTextSplitter conta caracteres.

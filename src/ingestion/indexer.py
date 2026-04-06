@@ -77,6 +77,8 @@ def _texto_para_sparse(texto: str) -> SparseVector:
     em Python ≥3.3 via PYTHONHASHSEED), garantindo consistência entre
     indexação e consulta.
 
+    Colisões de hash são resolvidas por soma dos pesos, garantindo índices únicos.
+
     Nota: para produção, substituir por um tokenizador BM25 dedicado (ex: rank_bm25).
     """
     import hashlib
@@ -84,13 +86,14 @@ def _texto_para_sparse(texto: str) -> SparseVector:
 
     tokens = texto.lower().split()
     contagem = Counter(tokens)
-    # Hash determinístico — md5 truncado a 32 bits, modulo 100k
-    indices = [
-        int(hashlib.md5(t.encode()).hexdigest(), 16) % 100_000
-        for t in contagem
-    ]
-    valores = [float(v) for v in contagem.values()]
-    return SparseVector(indices=indices, values=valores)
+
+    # Agrega pesos por índice — resolve colisões somando as frequências
+    agregado: dict[int, float] = {}
+    for token, freq in contagem.items():
+        idx = int(hashlib.md5(token.encode()).hexdigest(), 16) % 100_000
+        agregado[idx] = agregado.get(idx, 0.0) + float(freq)
+
+    return SparseVector(indices=list(agregado.keys()), values=list(agregado.values()))
 
 
 def indexar_chunks(

@@ -1,6 +1,6 @@
 langchain
 langchain-text-splitters
-langchain-google-genai
+langchain-google-genai<2.0
 langchain-anthropic
 langchain-qdrant
 pymupdf
