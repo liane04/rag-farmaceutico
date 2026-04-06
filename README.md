@@ -48,7 +48,6 @@ ANTHROPIC_API_KEY=a_tua_chave_aqui
 QDRANT_HOST=localhost
 QDRANT_PORT=6333
 
-
 **5. Levantar o Qdrant**
 
 ```bash
@@ -62,3 +61,12 @@ O dashboard do Qdrant fica disponível em http://localhost:6333/dashboard
 Liane Duarte — al79012 — UTAD 2025/2026
 
 **Orientadores:** Ricardo Costa (Teclab) · Paulo Oliveira · Eduardo Pires (UTAD)
+
+a filtragem por documento nao esta a dar, no ficheiro pipline.py tenho de preencher:
+
+
+TIPOS_PADRAO: dict[str, str] = {
+
+ex: "bula_paracetamol.pdf": "bula"
+
+}
