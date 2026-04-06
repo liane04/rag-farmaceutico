@@ -19,9 +19,9 @@ Configuração central do sistema. Lê variáveis do `.env` via `python-dotenv`.
 | `ANTHROPIC_API_KEY` | `.env` | API key Claude |
 | `QDRANT_HOST` / `QDRANT_PORT` | `localhost:6333` | Ligação ao Qdrant |
 | `QDRANT_COLLECTION` | `farmacos` | Nome da collection |
-| `EMBEDDING_MODEL` | `models/text-embedding-004` | Gemini Embedding 2 |
+| `EMBEDDING_MODEL` | `models/gemini-embedding-2-preview` | Gemini Embedding 2 Preview |
 | `GENERATIVE_MODEL` | `claude-3-5-sonnet-20241022` | Claude 3.5 Sonnet |
-| `EMBEDDING_DIMENSION` | `768` | Dimensão do vetor |
+| `EMBEDDING_DIMENSION` | `3072` | Dimensão do vetor |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `4000` / `800` | Caracteres (~1000/~200 tokens) |
 | `RETRIEVAL_TOP_K` / `RERANK_TOP_N` | `10` / `3` | Recuperação e reranking |
 | `FAITHFULNESS_THRESHOLD` | `0.85` | Guardrail de output |
@@ -104,7 +104,7 @@ Indexação no Qdrant com suporte a recuperação híbrida.
 **Dependências:** `qdrant-client`
 
 **Configuração da collection:**
-- Vetor denso `"dense"`: dimensão 768, distância Cosine
+- Vetor denso `"dense"`: dimensão 3072, distância Cosine
 - Vetor esparso `"sparse"`: BM25-like para keyword search
 - Payload: `texto` + todos os metadados do chunk
 
@@ -147,7 +147,7 @@ Adicionado `langchain-text-splitters` (necessário para `chunker.py`).
 ```
 langchain
 langchain-text-splitters    ← adicionado
-langchain-google-genai
+langchain-google-genai<2.0  ← versão fixada (ver nota abaixo)
 langchain-anthropic
 langchain-qdrant
 pymupdf
@@ -157,6 +157,8 @@ fastapi
 uvicorn
 python-dotenv
 ```
+
+> **Nota:** `langchain-google-genai>=2.0` usa o SDK `google-genai` que acede ao endpoint `v1beta`, onde `models/text-embedding-004` não está disponível. A versão `<2.0` usa `google-generativeai` e o endpoint correto.
 
 ---
 
@@ -213,6 +215,9 @@ Após a criação inicial dos ficheiros, foi feita uma revisão completa que ide
 | `loader.py` | `field` e `Optional` importados sem uso | Removidos |
 | `indexer.py` | `VectorsConfig` importado sem uso | Removido |
 | `pipeline.py` | `sys` importado sem uso; import lazy dentro de função | Limpos e movidos para o topo |
+| `config.py` | `models/text-embedding-004` não disponível no endpoint `v1beta` usado pelo SDK | Alterado para `models/gemini-embedding-2-preview` (3072 dims); `EMBEDDING_DIMENSION` atualizado |
+| `requirements.txt` | `langchain-google-genai>=2.0` usa SDK `google-genai` incompatível com o modelo de embedding | Fixado para `<2.0` |
+| `indexer.py` | `_texto_para_sparse` produzia índices duplicados em caso de colisão de hash | Corrigido com dicionário de agregação (soma de pesos por índice) |
 
 ---
 
