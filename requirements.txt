@@ -1,6 +1,7 @@
+numpy>=2.2
 langchain
 langchain-text-splitters
-langchain-google-genai<2.0
+langchain-google-genai
 langchain-anthropic
 langchain-qdrant
 pymupdf
