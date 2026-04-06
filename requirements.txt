@@ -1,0 +1,10 @@
+langchain
+langchain-google-genai
+langchain-anthropic
+langchain-qdrant
+pymupdf
+pdfplumber
+qdrant-client
+fastapi
+uvicorn
+python-dotenv
