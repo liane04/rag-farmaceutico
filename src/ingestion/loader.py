@@ -120,12 +120,24 @@ def carregar_pasta(
     mapeamento_tipos: dict[str, str] | None = None,
 ) -> list[DocumentoExtraido]:
     """
-    Carrega todos os PDFs de uma pasta.
+    Carrega todos os PDFs de uma pasta e subpastas.
+
+    O tipo de documento é inferido pela subpasta (ex: bulas/, monografias/).
+    PDFs na raiz ou em subpastas não reconhecidas ficam como "desconhecido",
+    a menos que exista um mapeamento explícito.
+
+    Estrutura esperada:
+        data/documents/
+        ├── bulas/
+        │   └── brufen_folheto.pdf
+        ├── monografias/
+        │   └── brufen.pdf
+        └── guidelines/
+            └── norma_infarmed.pdf
 
     Args:
-        pasta: Diretório com os ficheiros PDF.
-        mapeamento_tipos: Dicionário {nome_ficheiro: tipo_documento}.
-                          Documentos sem mapeamento ficam como "desconhecido".
+        pasta: Diretório raiz com os ficheiros PDF.
+        mapeamento_tipos: Override manual {nome_ficheiro: tipo_documento}.
 
     Returns:
         Lista de DocumentoExtraido, um por ficheiro.
@@ -134,14 +146,28 @@ def carregar_pasta(
     if not pasta.is_dir():
         raise NotADirectoryError(f"Pasta não encontrada: {pasta}")
 
+    # Subpastas reconhecidas como tipos de documento
+    tipos_por_pasta = {
+        "bulas": "bula",
+        "monografias": "monografia",
+        "guidelines": "guideline",
+        "normas": "norma",
+    }
+
     mapeamento_tipos = mapeamento_tipos or {}
     documentos = []
 
-    for pdf in sorted(pasta.glob("*.pdf")):
-        tipo = mapeamento_tipos.get(pdf.name, "desconhecido")
+    for pdf in sorted(pasta.rglob("*.pdf")):
+        # Prioridade: mapeamento explícito > nome da subpasta > "desconhecido"
+        if pdf.name in mapeamento_tipos:
+            tipo = mapeamento_tipos[pdf.name]
+        else:
+            subpasta = pdf.parent.name
+            tipo = tipos_por_pasta.get(subpasta, "desconhecido")
+
         print(f"[loader] A carregar {pdf.name} (tipo: {tipo})")
         doc = carregar_pdf(pdf, tipo_documento=tipo)
         documentos.append(doc)
-        print(f"[loader] {pdf.name} → {doc.total_paginas} páginas")
+        print(f"[loader] {pdf.name} -- {doc.total_paginas} paginas")
 
     return documentos

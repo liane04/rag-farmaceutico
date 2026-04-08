@@ -10,6 +10,7 @@ A recuperação híbrida (densa + esparsa) é configurada na collection
 para suportar o pipeline de consulta (RF03).
 """
 
+import hashlib
 import uuid
 
 from qdrant_client import QdrantClient
@@ -123,8 +124,14 @@ def indexar_chunks(
 
     for chunk, vetor_denso in pares:
         sparse = _texto_para_sparse(chunk.texto)
+
+        # ID determinístico: mesmo chunk gera sempre o mesmo ID.
+        # Permite re-ingestão sem duplicados (upsert sobrepõe).
+        chave = f"{chunk.metadados['ficheiro']}:{chunk.metadados['pagina']}:{chunk.metadados['chunk_index']}"
+        ponto_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, chave))
+
         pontos.append(PointStruct(
-            id=str(uuid.uuid4()),
+            id=ponto_id,
             vector={
                 VETOR_DENSO: vetor_denso,
                 VETOR_ESPARSO: sparse,

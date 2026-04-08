@@ -10,7 +10,7 @@ O sistema permite carregar documentação farmacêutica oficial portuguesa (bula
 
 ## Pré-requisitos
 
-- Python 3.12+
+- Python 3.12 ou 3.13 (3.14+ não é suportado — incompatível com Pydantic V1 usado pelo LangChain)
 - Docker Desktop
 - Git
 - Chave de API Google (Gemini Embedding 2)
@@ -63,7 +63,6 @@ Liane Duarte — al79012 — UTAD 2025/2026
 **Orientadores:** Ricardo Costa (Teclab) · Paulo Oliveira · Eduardo Pires (UTAD)
 
 a filtragem por documento nao esta a dar, no ficheiro pipline.py tenho de preencher:
-
 
 TIPOS_PADRAO: dict[str, str] = {
 

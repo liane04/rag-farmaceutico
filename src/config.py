@@ -19,7 +19,7 @@ QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "farmacos")
 
 # --- Modelos ---
 EMBEDDING_MODEL = "models/gemini-embedding-2-preview"
-GENERATIVE_MODEL = "claude-3-5-sonnet-20241022"     # Claude 3.5 Sonnet
+GENERATIVE_MODEL = "claude-sonnet-4-5"
 EMBEDDING_DIMENSION = 3072
 
 # --- Chunking ---
