@@ -62,6 +62,22 @@ docker stop qdrant
 # http://localhost:6333/dashboard
 ```
 
+## API (FastAPI)
+
+```bash
+# Iniciar a API
+uvicorn src.api.main:app --reload --port 8000
+
+# Swagger UI (abrir no browser)
+# http://localhost:8000/docs
+
+# Endpoints disponiveis:
+# POST /consulta    — fazer uma pergunta
+# POST /ingestao    — re-ingerir documentos
+# GET  /health      — estado do sistema
+# GET  /audit       — ver logs de auditoria
+```
+
 ## Instalar dependencias (so se necessario)
 
 ```bash
