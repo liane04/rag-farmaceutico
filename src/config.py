@@ -6,7 +6,7 @@ Lê variáveis de ambiente do ficheiro .env.
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 # --- APIs ---
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")

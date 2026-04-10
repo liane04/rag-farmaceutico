@@ -23,7 +23,7 @@ PADROES_INJECTION = [
     r"override",
     r"system\s*prompt",
     r"jailbreak",
-    r"DAN\s+mode",
+    r"dan\s+mode",
     r"ignore\s+(all\s+)?previous",
     r"forget\s+(all\s+)?instructions",
     r"you\s+are\s+now",

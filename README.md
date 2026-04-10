@@ -62,10 +62,12 @@ Liane Duarte — al79012 — UTAD 2025/2026
 
 **Orientadores:** Ricardo Costa (Teclab) · Paulo Oliveira · Eduardo Pires (UTAD)
 
-a filtragem por documento nao esta a dar, no ficheiro pipline.py tenho de preencher:
+para iniciar cada vez que fecho:
 
-TIPOS_PADRAO: dict[str, str] = {
+1. venv\Scripts\activate
+2. abrir docker desktop
+3. no terminal: docker start qdrant
 
-ex: "bula_paracetamol.pdf": "bula"
+   para correr os testes:
 
-}
+   python -m pytest tests/test_retriever.py tests/test_pipeline.py -v

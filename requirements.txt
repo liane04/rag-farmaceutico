@@ -10,3 +10,5 @@ qdrant-client
 fastapi
 uvicorn
 python-dotenv
+anthropic
+pytest
