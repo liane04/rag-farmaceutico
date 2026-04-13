@@ -56,6 +56,9 @@ docker run -d --name qdrant -p 6333:6333 -v qdrant_storage:/qdrant/storage qdran
 
 O dashboard do Qdrant fica disponível em http://localhost:6333/dashboard
 
+Se preferires correr a API também em Docker, usa o `docker compose up --build` na raiz do projeto.
+Nesse modo, a API já fica configurada para falar com o Qdrant através do porto publicado no host.
+
 ## Autora
 
 Liane Duarte — al79012 — UTAD 2025/2026
@@ -64,9 +67,12 @@ Liane Duarte — al79012 — UTAD 2025/2026
 
 para iniciar cada vez que fecho:
 
-1. venv\Scripts\activate
-2. abrir docker desktop
-3. no terminal: docker start qdrant
+1. `venv\Scripts\activate`
+2. abrir Docker Desktop
+3. se estiveres a correr tudo manualmente:
+   - `docker start qdrant`
+4. se estiveres a usar Docker Compose:
+   - `docker compose up --build -d`
 
    para correr os testes:
 

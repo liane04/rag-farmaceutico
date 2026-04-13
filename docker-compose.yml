@@ -18,8 +18,12 @@ services:
     env_file:
       - .env
     environment:
-      - QDRANT_HOST=qdrant
+      # A API fala com o Qdrant através do porto publicado no host.
+      # Isto evita problemas de resolução de nome quando a API corre noutro contexto.
+      - QDRANT_HOST=host.docker.internal
       - QDRANT_PORT=6333
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./data:/app/data
     depends_on:

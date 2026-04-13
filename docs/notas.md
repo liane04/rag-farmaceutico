@@ -68,6 +68,13 @@ docker stop qdrant
 # http://localhost:6333/dashboard
 ```
 
+Se estiveres a usar Docker Compose, não precisas de iniciar o Qdrant manualmente.
+O comando recomendado é:
+
+```bash
+docker compose up --build -d
+```
+
 ## API (FastAPI)
 
 ```bash
@@ -83,8 +90,6 @@ uvicorn src.api.main:app --reload --port 8000
 # GET  /health      — estado do sistema
 # GET  /audit       — ver logs de auditoria
 ```
-
-
 
 ## Docker Compose (deployment)
 
