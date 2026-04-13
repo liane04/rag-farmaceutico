@@ -8,9 +8,11 @@ Valida que a query do utilizador:
 
 import re
 
-from anthropic import Anthropic
+# [CLAUDE] from anthropic import Anthropic
+import google.generativeai as genai
 
-from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL
+# [CLAUDE] from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL
+from src.config import GOOGLE_API_KEY, GENERATIVE_MODEL
 
 
 # Padroes suspeitos de prompt injection
@@ -60,7 +62,7 @@ def _verificar_comprimento(query: str) -> tuple[bool, str]:
 
 def _verificar_dominio(query: str) -> tuple[bool, str]:
     """
-    Verifica se a query esta no dominio farmaceutico usando o Claude.
+    Verifica se a query esta no dominio farmaceutico usando um LLM.
 
     Returns:
         (is_in_domain, razao)
@@ -73,14 +75,24 @@ Responde APENAS com "SIM" ou "NAO" seguido de uma breve justificacao.
 
 PERGUNTA: {query}"""
 
-    cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
-    resposta = cliente.messages.create(
-        model=GENERATIVE_MODEL,
-        max_tokens=100,
-        messages=[{"role": "user", "content": prompt}],
+    # --- Gemini ---
+    genai.configure(api_key=GOOGLE_API_KEY)
+    model = genai.GenerativeModel(model_name=GENERATIVE_MODEL)
+    resposta = model.generate_content(
+        prompt,
+        generation_config={"max_output_tokens": 100},
     )
+    texto = resposta.text.strip().upper()
 
-    texto = resposta.content[0].text.strip().upper()
+    # --- [CLAUDE] ---
+    # cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
+    # resposta = cliente.messages.create(
+    #     model=GENERATIVE_MODEL,
+    #     max_tokens=100,
+    #     messages=[{"role": "user", "content": prompt}],
+    # )
+    # texto = resposta.content[0].text.strip().upper()
+
     if texto.startswith("SIM"):
         return True, ""
     else:

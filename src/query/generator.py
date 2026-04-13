@@ -1,5 +1,5 @@
 """
-Geracao de resposta com citacao de fontes (Claude 3.5 Sonnet).
+Geracao de resposta com citacao de fontes.
 
 Recebe os chunks rerankados e gera uma resposta fundamentada
 com citacoes explicitas da documentacao (RF08, RF13).
@@ -7,9 +7,11 @@ com citacoes explicitas da documentacao (RF08, RF13).
 
 from dataclasses import dataclass
 
-from anthropic import Anthropic
+# [CLAUDE] from anthropic import Anthropic
+import google.generativeai as genai
 
-from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL
+# [CLAUDE] from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL
+from src.config import GOOGLE_API_KEY, GENERATIVE_MODEL
 from src.query.prompt import SYSTEM_PROMPT, PROMPT_GERACAO
 from src.query.retriever import ChunkRecuperado
 
@@ -83,16 +85,27 @@ def gerar_resposta(
     contexto = _formatar_contexto(chunks)
     prompt_user = PROMPT_GERACAO.format(contexto=contexto, query=query_usada)
 
-    # Chamar Claude com system prompt farmaceutico
-    cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
-    resposta = cliente.messages.create(
-        model=GENERATIVE_MODEL,
-        max_tokens=2048,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt_user}],
+    # --- Gemini ---
+    genai.configure(api_key=GOOGLE_API_KEY)
+    model = genai.GenerativeModel(
+        model_name=GENERATIVE_MODEL,
+        system_instruction=SYSTEM_PROMPT,
     )
+    resposta = model.generate_content(
+        prompt_user,
+        generation_config={"max_output_tokens": 2048},
+    )
+    texto_resposta = resposta.text.strip()
 
-    texto_resposta = resposta.content[0].text.strip()
+    # --- [CLAUDE] ---
+    # cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
+    # resposta = cliente.messages.create(
+    #     model=GENERATIVE_MODEL,
+    #     max_tokens=2048,
+    #     system=SYSTEM_PROMPT,
+    #     messages=[{"role": "user", "content": prompt_user}],
+    # )
+    # texto_resposta = resposta.content[0].text.strip()
 
     # Adicionar aviso se contexto insuficiente (CRAG)
     if not contexto_suficiente:

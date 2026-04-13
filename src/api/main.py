@@ -14,7 +14,7 @@ Uso:
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -244,9 +244,77 @@ async def audit():
     return {"registos": registos, "total": len(registos)}
 
 
+@app.post(
+    "/upload",
+    response_model=IngestaoResponse,
+    summary="Upload e ingestao de um PDF",
+    description="Faz upload de um ficheiro PDF, coloca-o na subpasta correta e indexa-o no Qdrant.",
+)
+async def upload(
+    ficheiro: UploadFile = File(..., description="Ficheiro PDF a ingerir"),
+    tipo_documento: str = Form(..., description="Tipo: bula, monografia, guideline, norma"),
+):
+    import shutil
+
+    # Validar tipo
+    tipos_validos = {"bula": "bulas", "monografia": "monografias", "guideline": "guidelines", "norma": "normas"}
+    if tipo_documento not in tipos_validos:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tipo invalido. Valores aceites: {', '.join(tipos_validos.keys())}",
+        )
+
+    # Validar extensao
+    if not ficheiro.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Apenas ficheiros PDF sao aceites.")
+
+    # Guardar na subpasta correta
+    pasta_base = Path(__file__).parent.parent.parent / "data" / "documents"
+    pasta_destino = pasta_base / tipos_validos[tipo_documento]
+    pasta_destino.mkdir(parents=True, exist_ok=True)
+
+    caminho_ficheiro = pasta_destino / ficheiro.filename
+
+    with open(caminho_ficheiro, "wb") as f:
+        shutil.copyfileobj(ficheiro.file, f)
+
+    # Ingerir o ficheiro
+    inicio = time.time()
+
+    from src.ingestion.loader import carregar_pdf
+    from src.ingestion.chunker import chunkar_documento
+    from src.ingestion.embedder import criar_embedder, gerar_embeddings
+    from src.ingestion.indexer import criar_cliente, indexar_chunks, contar_pontos
+
+    try:
+        doc = carregar_pdf(caminho_ficheiro, tipo_documento=tipo_documento)
+        chunks = chunkar_documento(doc)
+        embedder = criar_embedder()
+        pares = gerar_embeddings(chunks, embedder)
+        cliente = criar_cliente()
+        total_indexado = indexar_chunks(pares, cliente)
+        total_collection = contar_pontos(cliente)
+    except Exception as e:
+        # Se falhar a ingestao, apagar o ficheiro
+        caminho_ficheiro.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail=f"Erro na ingestao: {str(e)}")
+
+    duracao = time.time() - inicio
+
+    return IngestaoResponse(
+        documentos_carregados=1,
+        chunks_gerados=len(chunks),
+        pontos_indexados=total_indexado,
+        total_na_collection=total_collection,
+        duracao_segundos=round(duracao, 1),
+    )
+
+
 # --- Interface web ---
 
 STATIC_DIR = Path(__file__).parent / "static"
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.get("/", include_in_schema=False)

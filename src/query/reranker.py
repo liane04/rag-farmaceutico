@@ -1,17 +1,19 @@
 """
-Reranking de chunks com LLM-as-Judge (Claude 3.5 Sonnet).
+Reranking de chunks com LLM-as-Judge.
 
 Recebe os top_k chunks da recuperacao hibrida e seleciona os top_n
-mais relevantes para a query, usando o Claude como juiz de relevancia.
+mais relevantes para a query, usando um LLM como juiz de relevancia.
 
 Isto melhora a precisao do contexto enviado ao gerador (RF04).
 """
 
 import json
 
-from anthropic import Anthropic
+# [CLAUDE] from anthropic import Anthropic
+import google.generativeai as genai
 
-from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL, RERANK_TOP_N
+# [CLAUDE] from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL, RERANK_TOP_N
+from src.config import GOOGLE_API_KEY, GENERATIVE_MODEL, RERANK_TOP_N
 from src.query.retriever import ChunkRecuperado
 
 
@@ -38,7 +40,7 @@ def rerankar(
     top_n: int = RERANK_TOP_N,
 ) -> list[ChunkRecuperado]:
     """
-    Reordena chunks por relevancia usando Claude como juiz.
+    Reordena chunks por relevancia usando LLM como juiz.
 
     Args:
         query: Pergunta original do utilizador.
@@ -62,17 +64,26 @@ def rerankar(
 
     prompt = PROMPT_RERANK.format(query=query, excertos=excertos_texto)
 
-    # Chamar Claude
-    cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
-    resposta = cliente.messages.create(
-        model=GENERATIVE_MODEL,
-        max_tokens=1024,
-        messages=[{"role": "user", "content": prompt}],
+    # --- Gemini ---
+    genai.configure(api_key=GOOGLE_API_KEY)
+    model = genai.GenerativeModel(model_name=GENERATIVE_MODEL)
+    resposta = model.generate_content(
+        prompt,
+        generation_config={"max_output_tokens": 1024},
     )
+    texto_resposta = resposta.text.strip()
+
+    # --- [CLAUDE] ---
+    # cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
+    # resposta = cliente.messages.create(
+    #     model=GENERATIVE_MODEL,
+    #     max_tokens=1024,
+    #     messages=[{"role": "user", "content": prompt}],
+    # )
+    # texto_resposta = resposta.content[0].text.strip()
 
     # Parsear resposta
     try:
-        texto_resposta = resposta.content[0].text.strip()
         # Remover markdown code blocks se presentes
         if texto_resposta.startswith("```"):
             texto_resposta = texto_resposta.split("\n", 1)[1]
@@ -80,7 +91,7 @@ def rerankar(
         avaliacoes = json.loads(texto_resposta)
     except (json.JSONDecodeError, IndexError, KeyError):
         # Fallback: manter a ordem original do retriever
-        print("[reranker] AVISO: Falha ao parsear resposta do Claude. A usar ordem original.")
+        print("[reranker] AVISO: Falha ao parsear resposta do LLM. A usar ordem original.")
         return chunks[:top_n]
 
     # Ordenar por score do LLM e selecionar top_n

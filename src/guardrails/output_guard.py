@@ -8,9 +8,11 @@ Verifica que a resposta gerada:
 
 import json
 
-from anthropic import Anthropic
+# [CLAUDE] from anthropic import Anthropic
+import google.generativeai as genai
 
-from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL, FAITHFULNESS_THRESHOLD
+# [CLAUDE] from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL, FAITHFULNESS_THRESHOLD
+from src.config import GOOGLE_API_KEY, GENERATIVE_MODEL, FAITHFULNESS_THRESHOLD
 from src.query.retriever import ChunkRecuperado
 
 
@@ -65,7 +67,7 @@ def verificar_fidelidade(
     chunks: list[ChunkRecuperado],
 ) -> dict:
     """
-    Avalia a fidelidade da resposta ao contexto usando Claude.
+    Avalia a fidelidade da resposta ao contexto usando um LLM.
 
     Args:
         resposta: Texto da resposta gerada.
@@ -83,15 +85,25 @@ def verificar_fidelidade(
 
     prompt = PROMPT_FIDELIDADE.format(contexto=contexto, resposta=resposta)
 
-    cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
-    resp = cliente.messages.create(
-        model=GENERATIVE_MODEL,
-        max_tokens=512,
-        messages=[{"role": "user", "content": prompt}],
+    # --- Gemini ---
+    genai.configure(api_key=GOOGLE_API_KEY)
+    model = genai.GenerativeModel(model_name=GENERATIVE_MODEL)
+    resp = model.generate_content(
+        prompt,
+        generation_config={"max_output_tokens": 512},
     )
+    texto = resp.text.strip()
+
+    # --- [CLAUDE] ---
+    # cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
+    # resp = cliente.messages.create(
+    #     model=GENERATIVE_MODEL,
+    #     max_tokens=512,
+    #     messages=[{"role": "user", "content": prompt}],
+    # )
+    # texto = resp.content[0].text.strip()
 
     try:
-        texto = resp.content[0].text.strip()
         if texto.startswith("```"):
             texto = texto.split("\n", 1)[1]
             texto = texto.rsplit("```", 1)[0]

@@ -10,6 +10,12 @@ venv\Scripts\activate
 
 # 3. Iniciar o container Qdrant
 docker start qdrant
+
+# 4. Iniciar a API
+uvicorn src.api.main:app --reload --port 8000
+
+# 5. Abrir programa
+http://localhost:8000/
 ```
 
 ## Pipeline de ingestao (indexar documentos no Qdrant)
@@ -77,6 +83,37 @@ uvicorn src.api.main:app --reload --port 8000
 # GET  /health      — estado do sistema
 # GET  /audit       — ver logs de auditoria
 ```
+
+
+
+## Docker Compose (deployment)
+
+```bash
+# Construir e iniciar tudo (Qdrant + API) com um so comando
+docker compose up --build
+
+# Em background
+docker compose up --build -d
+
+# Ver logs
+docker compose logs -f api
+docker compose logs -f qdrant
+
+# Parar tudo
+docker compose down
+
+# Parar e apagar volumes (CUIDADO: apaga dados do Qdrant)
+docker compose down -v
+```
+
+Depois de `docker compose up`, a API fica disponivel em:
+
+- Interface: http://localhost:8000
+- Swagger UI: http://localhost:8000/docs
+- Qdrant dashboard: http://localhost:6333/dashboard
+
+> Nota: ao usar Docker Compose, o Qdrant corre dentro do Docker (nao precisa de iniciar manualmente).
+> O volume `qdrant_data` persiste os dados entre reinicializacoes.
 
 ## Instalar dependencias (so se necessario)
 

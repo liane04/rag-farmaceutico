@@ -9,9 +9,11 @@ Implementa o mecanismo de auto-correcao do pipeline:
 
 import json
 
-from anthropic import Anthropic
+# [CLAUDE] from anthropic import Anthropic
+import google.generativeai as genai
 
-from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL, RELEVANCE_THRESHOLD
+# [CLAUDE] from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL, RELEVANCE_THRESHOLD
+from src.config import GOOGLE_API_KEY, GENERATIVE_MODEL, RELEVANCE_THRESHOLD
 from src.query.prompt import PROMPT_CRAG_AVALIACAO, PROMPT_CRAG_REFORMULACAO
 from src.query.retriever import ChunkRecuperado
 
@@ -26,6 +28,27 @@ def _formatar_contexto(chunks: list[ChunkRecuperado]) -> str:
         fonte = f"{chunk.metadados.get('ficheiro', '?')} (p.{chunk.metadados.get('pagina', '?')})"
         partes.append(f"[{i}] Fonte: {fonte}\n{chunk.texto}")
     return "\n\n".join(partes)
+
+
+def _chamar_llm(prompt: str, max_tokens: int = 256) -> str:
+    """Chama o LLM e devolve o texto da resposta."""
+    # --- Gemini ---
+    genai.configure(api_key=GOOGLE_API_KEY)
+    model = genai.GenerativeModel(model_name=GENERATIVE_MODEL)
+    resposta = model.generate_content(
+        prompt,
+        generation_config={"max_output_tokens": max_tokens},
+    )
+    return resposta.text.strip()
+
+    # --- [CLAUDE] ---
+    # cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
+    # resposta = cliente.messages.create(
+    #     model=GENERATIVE_MODEL,
+    #     max_tokens=max_tokens,
+    #     messages=[{"role": "user", "content": prompt}],
+    # )
+    # return resposta.content[0].text.strip()
 
 
 def avaliar_relevancia(
@@ -44,15 +67,8 @@ def avaliar_relevancia(
     contexto = _formatar_contexto(chunks)
     prompt = PROMPT_CRAG_AVALIACAO.format(query=query, contexto=contexto)
 
-    cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
-    resposta = cliente.messages.create(
-        model=GENERATIVE_MODEL,
-        max_tokens=256,
-        messages=[{"role": "user", "content": prompt}],
-    )
-
     try:
-        texto = resposta.content[0].text.strip()
+        texto = _chamar_llm(prompt, max_tokens=256)
         if texto.startswith("```"):
             texto = texto.split("\n", 1)[1]
             texto = texto.rsplit("```", 1)[0]
@@ -68,19 +84,11 @@ def reformular_query(query: str) -> str:
     """
     Reformula a query para melhorar a recuperacao.
 
-    Usa o Claude para gerar uma versao alternativa com termos
+    Usa o LLM para gerar uma versao alternativa com termos
     tecnicos farmaceuticos que possam melhorar o recall.
     """
     prompt = PROMPT_CRAG_REFORMULACAO.format(query=query)
-
-    cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
-    resposta = cliente.messages.create(
-        model=GENERATIVE_MODEL,
-        max_tokens=256,
-        messages=[{"role": "user", "content": prompt}],
-    )
-
-    nova_query = resposta.content[0].text.strip()
+    nova_query = _chamar_llm(prompt, max_tokens=256)
     print(f"[crag] Query reformulada: '{query}' -> '{nova_query}'")
     return nova_query
 

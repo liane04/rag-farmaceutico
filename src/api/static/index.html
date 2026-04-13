@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RAG Farmaceutico</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico?v=1">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon.png?v=1">
+    <link rel="apple-touch-icon" href="/static/logo.png?v=1">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -47,7 +50,13 @@
             align-items: center;
             gap: 0.75rem;
         }
-        .header-icon { font-size: 1.75rem; }
+        .header-logo {
+            width: 2.6rem;
+            height: 2.6rem;
+            display: block;
+            flex-shrink: 0;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+        }
         .header h1 { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.01em; }
         .header-subtitle { font-size: 0.8rem; opacity: 0.85; font-weight: 400; }
         .status-badge {
@@ -317,6 +326,51 @@
             padding: 0.85rem; max-height: 200px; overflow-y: auto; white-space: pre-wrap;
         }
 
+        /* ===== Upload ===== */
+        .upload-card {
+            background: var(--bg-card); border-radius: var(--radius);
+            padding: 1.5rem; box-shadow: var(--shadow); margin-bottom: 1.5rem;
+        }
+        .upload-title {
+            font-size: 0.85rem; font-weight: 600; color: var(--text-light);
+            text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem;
+        }
+        .upload-form { display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; }
+        .upload-field { display: flex; flex-direction: column; gap: 0.35rem; }
+        .upload-field label {
+            font-size: 0.78rem; font-weight: 500; color: var(--text-light);
+        }
+        .upload-file-input {
+            padding: 0.5rem; border: 2px dashed var(--border); border-radius: 8px;
+            font-size: 0.85rem; font-family: inherit; cursor: pointer;
+            background: #fafbfc; transition: border-color 0.2s; min-width: 250px;
+        }
+        .upload-file-input:hover { border-color: var(--primary-light); }
+        .upload-select {
+            padding: 0.6rem 0.85rem; border: 1.5px solid var(--border); border-radius: 8px;
+            font-size: 0.85rem; font-family: inherit; color: var(--text);
+            background: white; cursor: pointer;
+        }
+        .upload-btn {
+            padding: 0.6rem 1.5rem; background: var(--primary); color: white;
+            border: none; border-radius: 8px; font-size: 0.85rem; font-weight: 600;
+            cursor: pointer; transition: background 0.2s; font-family: inherit;
+        }
+        .upload-btn:hover { background: var(--primary-dark); }
+        .upload-btn:disabled { background: #94a3b8; cursor: not-allowed; }
+        .upload-status {
+            margin-top: 0.85rem; font-size: 0.84rem; display: none;
+        }
+        .upload-status.active { display: flex; align-items: center; gap: 0.5rem; }
+        .upload-status.success { color: #166534; }
+        .upload-status.error { color: #991b1b; }
+        .upload-status.loading { color: var(--text-light); }
+        .spinner-small {
+            width: 16px; height: 16px; border: 2px solid var(--border);
+            border-top-color: var(--primary); border-radius: 50%;
+            animation: spin 0.8s linear infinite; flex-shrink: 0;
+        }
+
         /* ===== Footer ===== */
         .footer { text-align: center; padding: 1.5rem; color: #94a3b8; font-size: 0.75rem; }
         .footer a { color: var(--primary); text-decoration: none; }
@@ -338,7 +392,7 @@
     <!-- Header -->
     <header class="header">
         <div class="header-left">
-            <span class="header-icon">&#9883;</span>
+            <img class="header-logo" src="/static/logo.png?v=1" alt="Logo do sistema">
             <div>
                 <h1>RAG Farmaceutico</h1>
                 <span class="header-subtitle">Sistema de Suporte a Decisao Farmaceutica</span>
@@ -425,6 +479,29 @@
     <!-- ==================== TAB: DOCUMENTOS ==================== -->
     <div class="tab-content" id="tab-documentos">
         <div class="container">
+            <!-- Upload -->
+            <div class="upload-card">
+                <div class="upload-title">Adicionar Documento</div>
+                <div class="upload-form">
+                    <div class="upload-field">
+                        <label>Ficheiro PDF</label>
+                        <input type="file" class="upload-file-input" id="uploadFile" accept=".pdf">
+                    </div>
+                    <div class="upload-field">
+                        <label>Tipo de documento</label>
+                        <select class="upload-select" id="uploadTipo">
+                            <option value="bula">Bula</option>
+                            <option value="monografia">Monografia</option>
+                            <option value="guideline">Guideline</option>
+                            <option value="norma">Norma</option>
+                        </select>
+                    </div>
+                    <button class="upload-btn" id="uploadBtn" onclick="uploadDocument()">Enviar e Indexar</button>
+                </div>
+                <div class="upload-status" id="uploadStatus"></div>
+            </div>
+
+            <!-- Stats -->
             <div class="stats-bar">
                 <div class="stat-card">
                     <div class="stat-value" id="statDocs2">-</div>
@@ -619,6 +696,64 @@
                 .replace(/<p>\s*(<hr>)\s*<\/p>/g, '$1');
             if (disclaimer) html += `<div class="disclaimer">${disclaimer}</div>`;
             return html;
+        }
+
+        // ==================== Upload ====================
+        async function uploadDocument() {
+            const fileInput = document.getElementById('uploadFile');
+            const tipo = document.getElementById('uploadTipo').value;
+            const btn = document.getElementById('uploadBtn');
+            const status = document.getElementById('uploadStatus');
+
+            if (!fileInput.files || fileInput.files.length === 0) {
+                status.className = 'upload-status active error';
+                status.innerHTML = '&#9888; Selecione um ficheiro PDF.';
+                return;
+            }
+
+            const file = fileInput.files[0];
+            if (!file.name.toLowerCase().endsWith('.pdf')) {
+                status.className = 'upload-status active error';
+                status.innerHTML = '&#9888; Apenas ficheiros PDF sao aceites.';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'A processar...';
+            status.className = 'upload-status active loading';
+            status.innerHTML = '<div class="spinner-small"></div> A enviar e indexar o documento...';
+
+            try {
+                const formData = new FormData();
+                formData.append('ficheiro', file);
+                formData.append('tipo_documento', tipo);
+
+                const res = await fetch(`${API_BASE}/upload`, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || 'Erro no upload');
+                }
+
+                const data = await res.json();
+                status.className = 'upload-status active success';
+                status.innerHTML = `&#10003; Documento indexado com sucesso: ${data.chunks_gerados} chunks gerados, ${data.total_na_collection} pontos na collection.`;
+
+                // Atualizar a lista de documentos e stats
+                fileInput.value = '';
+                loadDocumentos();
+                loadStats();
+                checkHealth();
+            } catch (err) {
+                status.className = 'upload-status active error';
+                status.innerHTML = `&#9888; ${err.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Enviar e Indexar';
+            }
         }
 
         // ==================== Documentos ====================
