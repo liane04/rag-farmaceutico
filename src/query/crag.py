@@ -9,11 +9,8 @@ Implementa o mecanismo de auto-correcao do pipeline:
 
 import json
 
-# [CLAUDE] from anthropic import Anthropic
-import google.generativeai as genai
-
-# [CLAUDE] from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL, RELEVANCE_THRESHOLD
-from src.config import GOOGLE_API_KEY, GENERATIVE_MODEL, RELEVANCE_THRESHOLD
+from anthropic import Anthropic
+from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL, RELEVANCE_THRESHOLD
 from src.query.prompt import PROMPT_CRAG_AVALIACAO, PROMPT_CRAG_REFORMULACAO
 from src.query.retriever import ChunkRecuperado
 
@@ -32,23 +29,13 @@ def _formatar_contexto(chunks: list[ChunkRecuperado]) -> str:
 
 def _chamar_llm(prompt: str, max_tokens: int = 256) -> str:
     """Chama o LLM e devolve o texto da resposta."""
-    # --- Gemini ---
-    genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel(model_name=GENERATIVE_MODEL)
-    resposta = model.generate_content(
-        prompt,
-        generation_config={"max_output_tokens": max_tokens},
+    cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
+    resposta = cliente.messages.create(
+        model=GENERATIVE_MODEL,
+        max_tokens=max_tokens,
+        messages=[{"role": "user", "content": prompt}],
     )
-    return resposta.text.strip()
-
-    # --- [CLAUDE] ---
-    # cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
-    # resposta = cliente.messages.create(
-    #     model=GENERATIVE_MODEL,
-    #     max_tokens=max_tokens,
-    #     messages=[{"role": "user", "content": prompt}],
-    # )
-    # return resposta.content[0].text.strip()
+    return resposta.content[0].text.strip()
 
 
 def avaliar_relevancia(

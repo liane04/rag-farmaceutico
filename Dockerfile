@@ -1,11 +1,6 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
-
-# Instalar dependencias do sistema necessarias para pymupdf e pdfplumber
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libmupdf-dev \
-    && rm -rf /var/lib/apt/lists/*
 
 # Copiar e instalar dependencias Python
 COPY requirements.txt .
@@ -13,9 +8,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiar codigo fonte
 COPY src/ ./src/
-COPY data/ ./data/
 
-# Criar diretorios necessarios
+# Criar diretorios necessarios (serao sobrepostos pelo volume em compose)
 RUN mkdir -p data/documents/bulas \
              data/documents/monografias \
              data/documents/guidelines \

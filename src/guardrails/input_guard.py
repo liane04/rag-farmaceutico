@@ -77,7 +77,7 @@ PERGUNTA: {query}"""
 
     # --- Gemini ---
     genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel(model_name=GENERATIVE_MODEL)
+    model = genai.GenerativeModel(model_name="gemini-2.0-flash")
     resposta = model.generate_content(
         prompt,
         generation_config={"max_output_tokens": 100},

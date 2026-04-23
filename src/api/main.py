@@ -149,12 +149,29 @@ async def health():
 
     try:
         cliente = criar_cliente()
-        info = cliente.get_collection(QDRANT_COLLECTION)
+    except Exception as e:
         return HealthResponse(
-            status="ok",
+            status="degradado",
+            qdrant=f"erro: {str(e)}",
+            collection=QDRANT_COLLECTION,
+            total_pontos=0,
+        )
+
+    try:
+        if not cliente.collection_exists(QDRANT_COLLECTION):
+            return HealthResponse(
+                status="vazio",
+                qdrant="conectado",
+                collection=QDRANT_COLLECTION,
+                total_pontos=0,
+            )
+        info = cliente.get_collection(QDRANT_COLLECTION)
+        total = info.points_count or 0
+        return HealthResponse(
+            status="ok" if total > 0 else "vazio",
             qdrant="conectado",
             collection=QDRANT_COLLECTION,
-            total_pontos=info.points_count,
+            total_pontos=total,
         )
     except Exception as e:
         return HealthResponse(

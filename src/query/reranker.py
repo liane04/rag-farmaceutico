@@ -9,11 +9,8 @@ Isto melhora a precisao do contexto enviado ao gerador (RF04).
 
 import json
 
-# [CLAUDE] from anthropic import Anthropic
-import google.generativeai as genai
-
-# [CLAUDE] from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL, RERANK_TOP_N
-from src.config import GOOGLE_API_KEY, GENERATIVE_MODEL, RERANK_TOP_N
+from anthropic import Anthropic
+from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL, RERANK_TOP_N
 from src.query.retriever import ChunkRecuperado
 
 
@@ -64,23 +61,13 @@ def rerankar(
 
     prompt = PROMPT_RERANK.format(query=query, excertos=excertos_texto)
 
-    # --- Gemini ---
-    genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel(model_name=GENERATIVE_MODEL)
-    resposta = model.generate_content(
-        prompt,
-        generation_config={"max_output_tokens": 1024},
+    cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
+    resposta = cliente.messages.create(
+        model=GENERATIVE_MODEL,
+        max_tokens=1024,
+        messages=[{"role": "user", "content": prompt}],
     )
-    texto_resposta = resposta.text.strip()
-
-    # --- [CLAUDE] ---
-    # cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
-    # resposta = cliente.messages.create(
-    #     model=GENERATIVE_MODEL,
-    #     max_tokens=1024,
-    #     messages=[{"role": "user", "content": prompt}],
-    # )
-    # texto_resposta = resposta.content[0].text.strip()
+    texto_resposta = resposta.content[0].text.strip()
 
     # Parsear resposta
     try:

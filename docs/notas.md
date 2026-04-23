@@ -109,6 +109,10 @@ docker compose down
 
 # Parar e apagar volumes (CUIDADO: apaga dados do Qdrant)
 docker compose down -v
+
+sempre que quiser alterar atualizar o site no localhost mesmo fazer isto:
+docker compose down
+docker compose up --build
 ```
 
 Depois de `docker compose up`, a API fica disponivel em:

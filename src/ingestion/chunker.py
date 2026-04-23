@@ -37,6 +37,29 @@ def _construir_texto_pagina(pagina: dict) -> str:
     return "\n".join(partes).strip()
 
 
+def _encontrar_paginas(inicio_chunk: int, fim_chunk: int, segmentos: list[dict]) -> dict:
+    """
+    Dado o intervalo [inicio_chunk, fim_chunk) no texto completo,
+    determina quais páginas o chunk abrange e se contém tabelas.
+
+    Returns:
+        dict com 'pagina' (primeira), 'paginas' (lista), 'tem_tabela' (bool).
+    """
+    paginas = []
+    tem_tabela = False
+    for seg in segmentos:
+        # Verifica se o chunk se sobrepõe a este segmento de página
+        if inicio_chunk < seg["fim"] and fim_chunk > seg["inicio"]:
+            paginas.append(seg["numero"])
+            if seg["tem_tabela"]:
+                tem_tabela = True
+    return {
+        "pagina": paginas[0] if paginas else 1,
+        "paginas": paginas,
+        "tem_tabela": tem_tabela,
+    }
+
+
 def chunkar_documento(
     documento: DocumentoExtraido,
     chunk_size: int = CHUNK_SIZE,
@@ -45,10 +68,12 @@ def chunkar_documento(
     """
     Divide um DocumentoExtraido em chunks com metadados completos.
 
-    Estratégia:
-    1. Constrói um bloco de texto por página (texto + tabelas)
-    2. Aplica RecursiveCharacterTextSplitter ao bloco de cada página
-    3. Associa metadados de rastreabilidade a cada chunk
+    Estratégia cross-page:
+    1. Constrói o texto de cada página (texto + tabelas)
+    2. Concatena TODAS as páginas num texto contínuo com separador de parágrafo
+    3. Aplica RecursiveCharacterTextSplitter ao texto completo — o overlap
+       cruza fronteiras de página, mantendo secções intactas
+    4. Mapeia cada chunk de volta às páginas de origem
 
     Args:
         documento: Documento carregado pelo loader.
@@ -56,7 +81,7 @@ def chunkar_documento(
         chunk_overlap: Sobreposição entre chunks consecutivos.
 
     Returns:
-        Lista de Chunk ordenados por página e posição.
+        Lista de Chunk ordenados por posição no documento.
     """
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
@@ -71,31 +96,60 @@ def chunkar_documento(
         ],
     )
 
-    chunks: list[Chunk] = []
-    chunk_index = 0
+    # 1. Concatenar todas as páginas, registando onde cada uma começa/acaba
+    texto_completo = ""
+    segmentos: list[dict] = []   # {inicio, fim, numero, tem_tabela}
 
     for pagina in documento.paginas:
         texto_pagina = _construir_texto_pagina(pagina)
         if not texto_pagina:
             continue
 
-        tem_tabela = bool(pagina.get("tabelas"))
-        fragmentos = splitter.split_text(texto_pagina)
+        inicio = len(texto_completo)
+        texto_completo += texto_pagina + "\n\n"
+        segmentos.append({
+            "inicio": inicio,
+            "fim": len(texto_completo),
+            "numero": pagina["numero"],
+            "tem_tabela": bool(pagina.get("tabelas")),
+        })
 
-        for fragmento in fragmentos:
-            if not fragmento.strip():
-                continue
-            chunks.append(Chunk(
-                texto=fragmento,
-                metadados={
-                    "ficheiro": documento.ficheiro,
-                    "tipo_documento": documento.tipo_documento,
-                    "pagina": pagina["numero"],
-                    "chunk_index": chunk_index,
-                    "tem_tabela": tem_tabela,
-                },
-            ))
-            chunk_index += 1
+    if not texto_completo.strip():
+        return []
+
+    # 2. Split global — o overlap agora cruza fronteiras de página
+    fragmentos = splitter.split_text(texto_completo)
+
+    # 3. Mapear cada fragmento de volta às páginas de origem
+    chunks: list[Chunk] = []
+    posicao_busca = 0  # posição de busca para encontrar fragmentos em ordem
+
+    for chunk_index, fragmento in enumerate(fragmentos):
+        if not fragmento.strip():
+            continue
+
+        # Encontrar onde este fragmento aparece no texto completo
+        idx = texto_completo.find(fragmento, posicao_busca)
+        if idx == -1:
+            # Fallback: procurar desde o início (pode acontecer com overlap)
+            idx = texto_completo.find(fragmento)
+        if idx == -1:
+            idx = posicao_busca  # último recurso
+
+        info_paginas = _encontrar_paginas(idx, idx + len(fragmento), segmentos)
+        posicao_busca = idx + 1  # avançar para evitar re-match do mesmo fragmento
+
+        chunks.append(Chunk(
+            texto=fragmento,
+            metadados={
+                "ficheiro": documento.ficheiro,
+                "tipo_documento": documento.tipo_documento,
+                "pagina": info_paginas["pagina"],
+                "paginas": info_paginas["paginas"],
+                "chunk_index": chunk_index,
+                "tem_tabela": info_paginas["tem_tabela"],
+            },
+        ))
 
     return chunks
 

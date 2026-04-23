@@ -1,5 +1,5 @@
 """
-Geração de embeddings com Gemini Embedding 2 (Google).
+Geração de embeddings com Gemini Embedding 2 Preview (Google).
 
 Usa a integração LangChain-Google-GenAI para gerar embeddings
 dos chunks de texto farmacêutico.
@@ -16,10 +16,12 @@ from src.config import GOOGLE_API_KEY, EMBEDDING_MODEL
 from src.ingestion.chunker import Chunk
 
 
-# Tamanho do lote para chamadas à API (evita rate limiting)
-BATCH_SIZE = 50
+# Lote pequeno para o gemini-embedding-2-preview (limites mais restritivos)
+BATCH_SIZE = 5
 # Pausa entre lotes (segundos)
 DELAY_ENTRE_LOTES = 1.0
+# Retries com backoff exponencial
+MAX_RETRIES = 3
 
 
 def criar_embedder(task_type: str = "RETRIEVAL_DOCUMENT") -> GoogleGenerativeAIEmbeddings:
@@ -37,6 +39,31 @@ def criar_embedder(task_type: str = "RETRIEVAL_DOCUMENT") -> GoogleGenerativeAIE
     )
 
 
+def _embeber_individual(chunks: list[Chunk], embedder: GoogleGenerativeAIEmbeddings) -> list[tuple[Chunk, list[float]]]:
+    """
+    Fallback: embebe chunks um a um quando o modo batch falha.
+    """
+    resultados = []
+    for i, chunk in enumerate(chunks):
+        for tentativa in range(MAX_RETRIES):
+            try:
+                vetor = embedder.embed_query(chunk.texto)
+                resultados.append((chunk, vetor))
+                break
+            except Exception as e:
+                wait_time = DELAY_ENTRE_LOTES * (2 ** tentativa)
+                print(f"[embedder] Erro individual chunk (tentativa {tentativa + 1}/{MAX_RETRIES}): {e}")
+                if tentativa < MAX_RETRIES - 1:
+                    time.sleep(wait_time)
+                else:
+                    raise RuntimeError(
+                        f"[embedder] Falha após {MAX_RETRIES} tentativas: {e}"
+                    )
+        if i < len(chunks) - 1:
+            time.sleep(0.3)
+    return resultados
+
+
 def gerar_embeddings(
     chunks: list[Chunk],
     embedder: GoogleGenerativeAIEmbeddings | None = None,
@@ -44,7 +71,9 @@ def gerar_embeddings(
     """
     Gera embeddings para uma lista de chunks.
 
-    Processa em lotes para respeitar os rate limits da API do Google.
+    Estratégia: lotes pequenos (5 chunks) via embed_documents().
+    Se um lote falhar ou devolver número errado de embeddings,
+    faz fallback para processamento individual desse lote.
 
     Args:
         chunks: Lista de chunks a embeber.
@@ -58,18 +87,42 @@ def gerar_embeddings(
 
     resultados: list[tuple[Chunk, list[float]]] = []
     total = len(chunks)
+    total_lotes = -(-total // BATCH_SIZE)  # ceil division
 
     for i in range(0, total, BATCH_SIZE):
         lote = chunks[i : i + BATCH_SIZE]
         textos = [c.texto for c in lote]
+        num_lote = i // BATCH_SIZE + 1
 
-        print(f"[embedder] Lote {i // BATCH_SIZE + 1} / {-(-total // BATCH_SIZE)} "
+        print(f"[embedder] Lote {num_lote}/{total_lotes} "
               f"({len(lote)} chunks)")
 
-        vetores = embedder.embed_documents(textos)
+        sucesso = False
+        for tentativa in range(MAX_RETRIES):
+            try:
+                vetores = embedder.embed_documents(textos)
 
-        for chunk, vetor in zip(lote, vetores):
-            resultados.append((chunk, vetor))
+                if len(vetores) != len(lote):
+                    print(f"[embedder] Lote {num_lote}: API devolveu {len(vetores)}/{len(lote)} "
+                          f"embeddings — fallback para individual")
+                    break  # vai para fallback individual
+                
+                for chunk, vetor in zip(lote, vetores):
+                    resultados.append((chunk, vetor))
+                sucesso = True
+                break
+
+            except Exception as e:
+                wait_time = DELAY_ENTRE_LOTES * (2 ** tentativa)
+                print(f"[embedder] Erro lote {num_lote} (tentativa {tentativa + 1}/{MAX_RETRIES}): {e}")
+                if tentativa < MAX_RETRIES - 1:
+                    time.sleep(wait_time)
+
+        # Fallback: processar este lote individualmente
+        if not sucesso:
+            print(f"[embedder] Lote {num_lote}: a processar {len(lote)} chunks individualmente...")
+            pares_individuais = _embeber_individual(lote, embedder)
+            resultados.extend(pares_individuais)
 
         # Pausa entre lotes (exceto no último)
         if i + BATCH_SIZE < total:
