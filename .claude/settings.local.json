@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(pip install *)",
+      "Bash(python -m pytest tests/ -v --tb=no)",
+      "Bash(python -m pytest tests/test_chunker.py::TestChunkarDocumentos::test_preserva_ficheiros_diferentes tests/test_loader.py::TestCarregarPasta::test_carrega_todos_pdfs_recursivamente tests/test_loader.py::TestCarregarPasta::test_infere_tipo_monografia -v --tb=long)",
+      "Bash(python -m pytest tests/test_pipeline.py tests/test_input_guard.py tests/test_output_guard.py -v --tb=short)",
+      "Bash(python -m pytest tests/test_pipeline.py -v --tb=short)",
+      "Bash(python -c ' *)",
+      "Bash(python -m pytest tests/test_chunker.py tests/test_loader.py -v --tb=short)"
+    ]
+  }
+}

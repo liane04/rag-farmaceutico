@@ -8,11 +8,8 @@ Valida que a query do utilizador:
 
 import re
 
-# [CLAUDE] from anthropic import Anthropic
-import google.generativeai as genai
-
-# [CLAUDE] from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL
-from src.config import GOOGLE_API_KEY, GENERATIVE_MODEL
+from anthropic import Anthropic
+from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL
 
 
 # Padroes suspeitos de prompt injection
@@ -75,23 +72,14 @@ Responde APENAS com "SIM" ou "NAO" seguido de uma breve justificacao.
 
 PERGUNTA: {query}"""
 
-    # --- Gemini ---
-    genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel(model_name="gemini-2.0-flash")
-    resposta = model.generate_content(
-        prompt,
-        generation_config={"max_output_tokens": 100},
+    cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
+    resposta = cliente.messages.create(
+        model=GENERATIVE_MODEL,
+        max_tokens=100,
+        temperature=0,
+        messages=[{"role": "user", "content": prompt}],
     )
-    texto = resposta.text.strip().upper()
-
-    # --- [CLAUDE] ---
-    # cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
-    # resposta = cliente.messages.create(
-    #     model=GENERATIVE_MODEL,
-    #     max_tokens=100,
-    #     messages=[{"role": "user", "content": prompt}],
-    # )
-    # texto = resposta.content[0].text.strip().upper()
+    texto = resposta.content[0].text.strip().upper().replace("*", "")
 
     if texto.startswith("SIM"):
         return True, ""

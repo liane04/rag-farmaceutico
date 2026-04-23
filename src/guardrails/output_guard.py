@@ -8,11 +8,8 @@ Verifica que a resposta gerada:
 
 import json
 
-# [CLAUDE] from anthropic import Anthropic
-import google.generativeai as genai
-
-# [CLAUDE] from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL, FAITHFULNESS_THRESHOLD
-from src.config import GOOGLE_API_KEY, GENERATIVE_MODEL, FAITHFULNESS_THRESHOLD
+from anthropic import Anthropic
+from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL, FAITHFULNESS_THRESHOLD
 from src.query.retriever import ChunkRecuperado
 
 
@@ -85,23 +82,13 @@ def verificar_fidelidade(
 
     prompt = PROMPT_FIDELIDADE.format(contexto=contexto, resposta=resposta)
 
-    # --- Gemini ---
-    genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel(model_name=GENERATIVE_MODEL)
-    resp = model.generate_content(
-        prompt,
-        generation_config={"max_output_tokens": 512},
+    cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
+    resp = cliente.messages.create(
+        model=GENERATIVE_MODEL,
+        max_tokens=512,
+        messages=[{"role": "user", "content": prompt}],
     )
-    texto = resp.text.strip()
-
-    # --- [CLAUDE] ---
-    # cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
-    # resp = cliente.messages.create(
-    #     model=GENERATIVE_MODEL,
-    #     max_tokens=512,
-    #     messages=[{"role": "user", "content": prompt}],
-    # )
-    # texto = resp.content[0].text.strip()
+    texto = resp.content[0].text.strip()
 
     try:
         if texto.startswith("```"):

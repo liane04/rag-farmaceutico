@@ -82,10 +82,13 @@ class TestChunkarDocumentos:
         assert len(chunks) > 0
 
     def test_preserva_ficheiros_diferentes(self):
-        pdf_mono = Path(__file__).parent.parent / "data" / "documents" / "monografias" / "brufen.pdf"
         doc1 = carregar_pdf(PDF_BULA, tipo_documento="bula")
-        doc2 = carregar_pdf(pdf_mono, tipo_documento="monografia")
+        doc2 = DocumentoExtraido(
+            ficheiro="monografia_sintetica.pdf",
+            paginas=[{"numero": 1, "texto": "Ibuprofeno é um anti-inflamatório não esteroide utilizado no tratamento da dor e febre. " * 20, "tabelas": []}],
+            tipo_documento="monografia",
+        )
         chunks = chunkar_documentos([doc1, doc2])
         ficheiros = set(c.metadados["ficheiro"] for c in chunks)
         assert "brufen_folheto.pdf" in ficheiros
-        assert "brufen.pdf" in ficheiros
+        assert "monografia_sintetica.pdf" in ficheiros
