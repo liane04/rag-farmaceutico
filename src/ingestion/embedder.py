@@ -39,6 +39,18 @@ def criar_embedder(task_type: str = "RETRIEVAL_DOCUMENT") -> GoogleGenerativeAIE
     )
 
 
+# Cache de embedders por task_type — evita recriar o cliente LangChain/HTTP
+# em cada consulta. Cada task_type tem o seu (sao instancias diferentes).
+_embedders_cache: dict[str, GoogleGenerativeAIEmbeddings] = {}
+
+
+def obter_embedder(task_type: str = "RETRIEVAL_DOCUMENT") -> GoogleGenerativeAIEmbeddings:
+    """Devolve uma instancia partilhada do embedder para o task_type dado."""
+    if task_type not in _embedders_cache:
+        _embedders_cache[task_type] = criar_embedder(task_type)
+    return _embedders_cache[task_type]
+
+
 def _embeber_individual(chunks: list[Chunk], embedder: GoogleGenerativeAIEmbeddings) -> list[tuple[Chunk, list[float]]]:
     """
     Fallback: embebe chunks um a um quando o modo batch falha.

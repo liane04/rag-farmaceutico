@@ -14,7 +14,7 @@ Uso:
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -55,7 +55,7 @@ app.add_middleware(
     summary="Consultar o sistema RAG",
     description="Envia uma pergunta em linguagem natural e recebe uma resposta fundamentada com citacoes.",
 )
-async def consulta(pedido: ConsultaRequest, request: Request):
+async def consulta(pedido: ConsultaRequest, request: Request, background_tasks: BackgroundTasks):
     from src.query.pipeline import consultar
 
     inicio = time.time()
@@ -77,7 +77,9 @@ async def consulta(pedido: ConsultaRequest, request: Request):
         for f in resultado.fontes
     ]
 
-    registar_consulta(
+    # Auditoria em background — nao bloqueia a resposta ao utilizador.
+    background_tasks.add_task(
+        registar_consulta,
         query_original=pedido.query,
         query_usada=resultado.query_usada,
         contexto_suficiente=resultado.contexto_suficiente,

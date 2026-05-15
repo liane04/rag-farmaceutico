@@ -8,8 +8,8 @@ Verifica que a resposta gerada:
 
 import json
 
-from anthropic import Anthropic
-from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL, FAITHFULNESS_THRESHOLD
+from src.config import GENERATIVE_MODEL, FAITHFULNESS_THRESHOLD
+from src.llm_client import obter_cliente
 from src.query.retriever import ChunkRecuperado
 
 
@@ -76,13 +76,16 @@ def verificar_fidelidade(
     if not chunks:
         return {"fidelidade": 0.0, "problemas": ["Sem contexto para avaliar."], "veredicto": "com_problemas"}
 
+    # A validacao usa os chunks completos: truncar aqui faria com que afirmacoes
+    # da resposta baseadas na 2a metade dos chunks parecessem nao-suportadas
+    # ao validador, gerando falsas deteccoes de alucinacao.
     contexto = "\n\n".join(
         f"[{i}] {c.texto}" for i, c in enumerate(chunks, start=1)
     )
 
     prompt = PROMPT_FIDELIDADE.format(contexto=contexto, resposta=resposta)
 
-    cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
+    cliente = obter_cliente()
     resp = cliente.messages.create(
         model=GENERATIVE_MODEL,
         max_tokens=512,

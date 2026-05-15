@@ -7,8 +7,8 @@ com citacoes explicitas da documentacao (RF08, RF13).
 
 from dataclasses import dataclass
 
-from anthropic import Anthropic
-from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL
+from src.config import GENERATIVE_MODEL
+from src.llm_client import obter_cliente
 from src.query.prompt import SYSTEM_PROMPT, PROMPT_GERACAO
 from src.query.retriever import ChunkRecuperado
 
@@ -82,10 +82,11 @@ def gerar_resposta(
     contexto = _formatar_contexto(chunks)
     prompt_user = PROMPT_GERACAO.format(contexto=contexto, query=query_usada)
 
-    cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
+    cliente = obter_cliente()
     resposta = cliente.messages.create(
         model=GENERATIVE_MODEL,
-        max_tokens=2048,
+        max_tokens=1500,
+        temperature=0.2,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt_user}],
     )

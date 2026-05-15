@@ -42,6 +42,18 @@ def criar_cliente() -> QdrantClient:
     return QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
 
+# Cache do cliente Qdrant partilhado — evita reabrir conexao HTTP em cada query.
+_cliente_qdrant: QdrantClient | None = None
+
+
+def obter_cliente() -> QdrantClient:
+    """Devolve uma instancia partilhada do cliente Qdrant (lazy)."""
+    global _cliente_qdrant
+    if _cliente_qdrant is None:
+        _cliente_qdrant = criar_cliente()
+    return _cliente_qdrant
+
+
 def garantir_collection(cliente: QdrantClient, nome: str = QDRANT_COLLECTION) -> None:
     """
     Cria a collection se ainda não existir.

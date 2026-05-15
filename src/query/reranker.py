@@ -8,15 +8,20 @@ Isto melhora a precisao do contexto enviado ao gerador (RF04).
 """
 
 import json
+from dataclasses import replace
 
-from anthropic import Anthropic
-from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL, RERANK_TOP_N
+from src.config import GENERATIVE_MODEL, RERANK_TOP_N
+from src.llm_client import obter_cliente
 from src.query.retriever import ChunkRecuperado
 
 
-PROMPT_RERANK = """Es um avaliador de relevancia para um sistema farmaceutico.
+SYSTEM_PROMPT = (
+    "Es um avaliador de relevancia para um sistema farmaceutico. "
+    "Avalias excertos de documentos farmaceuticos quanto a sua relevancia para "
+    "uma pergunta clinica, devolvendo scores estruturados em JSON."
+)
 
-Dada a pergunta do utilizador e uma lista de excertos de documentos farmaceuticos,
+PROMPT_RERANK = """Dada a pergunta do utilizador e uma lista de excertos de documentos farmaceuticos,
 avalia a relevancia de cada excerto numa escala de 0 a 10:
 - 0: completamente irrelevante
 - 5: parcialmente relevante
@@ -29,6 +34,17 @@ PERGUNTA: {query}
 
 EXCERTOS:
 {excertos}"""
+
+# Truncagem por excerto. Os chunks tem CHUNK_SIZE=4000 chars; permitimos
+# margem para edge cases do splitter sem inundar o prompt.
+MAX_DOC_CHARS = 4000
+
+
+def _truncar(texto: str) -> str:
+    """Trunca o excerto e sinaliza ao LLM que houve corte."""
+    if len(texto) <= MAX_DOC_CHARS:
+        return texto
+    return texto[:MAX_DOC_CHARS] + " [...]"
 
 
 def rerankar(
@@ -45,7 +61,8 @@ def rerankar(
         top_n: Numero de chunks a manter apos reranking.
 
     Returns:
-        Lista dos top_n ChunkRecuperado mais relevantes, com score atualizado.
+        Lista dos top_n ChunkRecuperado mais relevantes (copias com score
+        normalizado em [0, 1] vindo do LLM). Os chunks originais nao sao mutados.
     """
     if not chunks:
         return []
@@ -54,24 +71,26 @@ def rerankar(
         return chunks
 
     # Formatar excertos para o prompt
-    excertos_texto = ""
+    partes = []
     for i, chunk in enumerate(chunks):
         fonte = f"{chunk.metadados.get('ficheiro', '?')} (p.{chunk.metadados.get('pagina', '?')})"
-        excertos_texto += f"\n[{i}] Fonte: {fonte}\n{chunk.texto[:1500]}\n"
+        partes.append(f"\n[{i}] Fonte: {fonte}\n{_truncar(chunk.texto)}\n")
+    excertos_texto = "".join(partes)
 
     prompt = PROMPT_RERANK.format(query=query, excertos=excertos_texto)
 
-    cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
+    cliente = obter_cliente()
     resposta = cliente.messages.create(
         model=GENERATIVE_MODEL,
         max_tokens=1024,
+        temperature=0,
+        system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt}],
     )
     texto_resposta = resposta.content[0].text.strip()
 
     # Parsear resposta
     try:
-        # Remover markdown code blocks se presentes
         if texto_resposta.startswith("```"):
             texto_resposta = texto_resposta.split("\n", 1)[1]
             texto_resposta = texto_resposta.rsplit("```", 1)[0]
@@ -81,15 +100,16 @@ def rerankar(
         print("[reranker] AVISO: Falha ao parsear resposta do LLM. A usar ordem original.")
         return chunks[:top_n]
 
-    # Ordenar por score do LLM e selecionar top_n
+    # Ordenar por score e selecionar top_n
     avaliacoes_ordenadas = sorted(avaliacoes, key=lambda x: x.get("score", 0), reverse=True)
     resultado = []
     for avaliacao in avaliacoes_ordenadas[:top_n]:
         idx = avaliacao.get("indice", 0)
         if 0 <= idx < len(chunks):
-            chunk = chunks[idx]
-            # Atualizar score com a avaliacao do LLM (normalizado 0-1)
-            chunk.score = avaliacao.get("score", 0) / 10.0
-            resultado.append(chunk)
+            # Clamp [0, 10] protege thresholds a jusante contra alucinacoes
+            # do LLM (e.g. score=15 daria 1.5, que dispararia skip-CRAG indevidamente).
+            score_bruto = float(avaliacao.get("score", 0))
+            score_norm = max(0.0, min(10.0, score_bruto)) / 10.0
+            resultado.append(replace(chunks[idx], score=score_norm))
 
     return resultado

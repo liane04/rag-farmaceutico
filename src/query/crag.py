@@ -9,8 +9,8 @@ Implementa o mecanismo de auto-correcao do pipeline:
 
 import json
 
-from anthropic import Anthropic
-from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL, RELEVANCE_THRESHOLD
+from src.config import GENERATIVE_MODEL, RELEVANCE_THRESHOLD
+from src.llm_client import obter_cliente
 from src.query.prompt import PROMPT_CRAG_AVALIACAO, PROMPT_CRAG_REFORMULACAO
 from src.query.retriever import ChunkRecuperado
 
@@ -29,7 +29,7 @@ def _formatar_contexto(chunks: list[ChunkRecuperado]) -> str:
 
 def _chamar_llm(prompt: str, max_tokens: int = 256) -> str:
     """Chama o LLM e devolve o texto da resposta."""
-    cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
+    cliente = obter_cliente()
     resposta = cliente.messages.create(
         model=GENERATIVE_MODEL,
         max_tokens=max_tokens,

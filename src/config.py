@@ -29,12 +29,18 @@ CHUNK_SIZE = 4000       # caracteres (~1000 tokens)
 CHUNK_OVERLAP = 800     # caracteres (~200 tokens)
 
 # --- Recuperação ---
-RETRIEVAL_TOP_K = 10    # chunks recuperados antes do reranking
+RETRIEVAL_TOP_K = 7     # chunks recuperados antes do reranking
 RERANK_TOP_N = 3        # chunks após reranking (LLM-as-Judge)
 
 # --- Guardrails ---
 FAITHFULNESS_THRESHOLD = 0.85   # abaixo disto → flag na resposta
 RELEVANCE_THRESHOLD = 0.80      # abaixo disto → CRAG reformula query
+
+# --- Optimização CRAG ---
+# Se o score do top chunk após reranking for >= a este valor, salta a
+# avaliação CRAG (poupa 1 chamada LLM). O reranker é ele próprio um juiz LLM,
+# pelo que scores altos já indicam contexto suficiente.
+SKIP_CRAG_THRESHOLD = 0.85
 
 # --- Diretórios ---
 DOCUMENTS_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "documents")

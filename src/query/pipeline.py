@@ -17,6 +17,7 @@ import argparse
 import time
 from functools import partial
 
+from src.config import SKIP_CRAG_THRESHOLD
 from src.guardrails.input_guard import validar_input
 from src.guardrails.output_guard import validar_output
 from src.query.retriever import recuperar
@@ -82,19 +83,32 @@ def consultar(
     if verbose:
         print("-- Etapa 4: Avaliacao CRAG --")
 
-    # Funcao parcial para re-recuperacao (usada pelo CRAG se reformular)
-    def _recuperar_e_rerankar(nova_query: str) -> list:
-        novos_chunks = recuperar(nova_query, tipo_documento=tipo_documento)
-        return rerankar(nova_query, novos_chunks)
-
-    chunks_finais, contexto_suficiente, query_usada = crag_pipeline(
-        query, chunks_rerankados, recuperar_fn=_recuperar_e_rerankar,
-    )
+    # Skip-CRAG: se o reranker ja confia o suficiente no top chunk, dispensamos
+    # a segunda avaliacao LLM. Caso contrario corre-se o CRAG completo (que
+    # pode reformular a query e re-recuperar).
+    top_score = chunks_rerankados[0].score if chunks_rerankados else 0.0
     if verbose:
-        print(f"   Contexto suficiente: {contexto_suficiente}")
-        if query_usada != query:
-            print(f"   Query reformulada: {query_usada}")
-        print()
+        print(f"   Top score do reranker: {top_score:.3f} (threshold skip: {SKIP_CRAG_THRESHOLD})")
+    if top_score >= SKIP_CRAG_THRESHOLD:
+        chunks_finais = chunks_rerankados
+        contexto_suficiente = True
+        query_usada = query
+        if verbose:
+            print(f"   Saltado.\n")
+    else:
+        # Funcao parcial para re-recuperacao (usada pelo CRAG se reformular)
+        def _recuperar_e_rerankar(nova_query: str) -> list:
+            novos_chunks = recuperar(nova_query, tipo_documento=tipo_documento)
+            return rerankar(nova_query, novos_chunks)
+
+        chunks_finais, contexto_suficiente, query_usada = crag_pipeline(
+            query, chunks_rerankados, recuperar_fn=_recuperar_e_rerankar,
+        )
+        if verbose:
+            print(f"   Contexto suficiente: {contexto_suficiente}")
+            if query_usada != query:
+                print(f"   Query reformulada: {query_usada}")
+            print()
 
     # 5. Geracao de resposta
     if verbose:

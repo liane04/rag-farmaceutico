@@ -20,8 +20,8 @@ from qdrant_client.models import (
 )
 
 from src.config import QDRANT_COLLECTION, RETRIEVAL_TOP_K
-from src.ingestion.embedder import criar_embedder, gerar_embedding_query
-from src.ingestion.indexer import criar_cliente, VETOR_DENSO, VETOR_ESPARSO, _texto_para_sparse
+from src.ingestion.embedder import gerar_embedding_query, obter_embedder
+from src.ingestion.indexer import obter_cliente, VETOR_DENSO, VETOR_ESPARSO, _texto_para_sparse
 
 
 @dataclass
@@ -58,10 +58,10 @@ def recuperar(
         Lista de ChunkRecuperado ordenados por relevancia (score decrescente).
     """
     if cliente is None:
-        cliente = criar_cliente()
+        cliente = obter_cliente()
 
     # 1. Embedding denso da query
-    embedder_query = criar_embedder(task_type="RETRIEVAL_QUERY")
+    embedder_query = obter_embedder(task_type="RETRIEVAL_QUERY")
     vetor_denso = gerar_embedding_query(query, embedder_query)
 
     # 2. Vetor esparso da query

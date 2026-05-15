@@ -8,8 +8,8 @@ Valida que a query do utilizador:
 
 import re
 
-from anthropic import Anthropic
-from src.config import ANTHROPIC_API_KEY, GENERATIVE_MODEL
+from src.config import GENERATIVE_MODEL
+from src.llm_client import obter_cliente
 
 
 # Padroes suspeitos de prompt injection
@@ -72,7 +72,7 @@ Responde APENAS com "SIM" ou "NAO" seguido de uma breve justificacao.
 
 PERGUNTA: {query}"""
 
-    cliente = Anthropic(api_key=ANTHROPIC_API_KEY)
+    cliente = obter_cliente()
     resposta = cliente.messages.create(
         model=GENERATIVE_MODEL,
         max_tokens=100,
