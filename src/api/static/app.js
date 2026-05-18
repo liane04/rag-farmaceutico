@@ -1,7 +1,21 @@
 const API_BASE = window.location.origin;
 
+        // ==================== Estado da conversa ====================
+        // Historico mantido no cliente — o backend e stateless. Cada pedido a
+        // /consulta envia o array completo, e o backend usa-o para reformular
+        // a query como standalone antes do retrieval.
+        let mensagens = [];          // [{role: 'user'|'assistant', conteudo: '...'}]
+        let sessionId = null;        // UUID gerado pelo frontend, agrupa no audit log
+
+        function gerarSessionId() {
+            if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+            // Fallback simples se randomUUID nao estiver disponivel
+            return 'sess-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+        }
+
         // ==================== Init ====================
         document.addEventListener('DOMContentLoaded', () => {
+            sessionId = gerarSessionId();
             checkHealth();
             loadStats();
             document.getElementById('queryInput').addEventListener('keydown', (e) => {
@@ -61,55 +75,184 @@ const API_BASE = window.location.origin;
             } catch { /* silencioso */ }
         }
 
-        // ==================== Consulta ====================
+        // ==================== Consulta (chat) ====================
         async function submitQuery() {
-            const query = document.getElementById('queryInput').value.trim();
+            const input = document.getElementById('queryInput');
+            const query = input.value.trim();
             if (!query) return;
             const tipo = document.getElementById('tipoFilter').value || null;
             const btn = document.getElementById('searchBtn');
 
+            // 1. Append imediato da mensagem do utilizador (UI responsiva)
+            const userBubbleId = appendUserBubble(query);
+            mensagens.push({ role: 'user', conteudo: query });
+            input.value = '';
+
+            // 2. Bubble de "a pensar..." enquanto o backend trabalha
+            const thinkingId = appendThinkingBubble();
+
             btn.disabled = true;
             btn.textContent = 'A processar...';
-            show('loading'); hide('responseCard'); hide('errorCard');
+            hide('errorCard');
 
             try {
+                // Envia apenas o historico ANTERIOR a esta mensagem — a mensagem
+                // actual vai no campo `query`. O backend acrescenta-a internamente
+                // para a reformulacao contextual.
+                const historiaParaEnviar = mensagens.slice(0, -1);
+
                 const res = await fetch(`${API_BASE}/consulta`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query, tipo_documento: tipo }),
+                    body: JSON.stringify({
+                        query,
+                        tipo_documento: tipo,
+                        historia: historiaParaEnviar,
+                        session_id: sessionId,
+                    }),
                 });
                 if (!res.ok) {
                     const err = await res.json();
-                    throw new Error(err.detail || 'Erro no servidor');
+                    throw new Error(formatErrorDetail(err.detail) || 'Erro no servidor');
                 }
                 const data = await res.json();
-                renderResponse(data);
+
+                // 3. Remove bubble de "a pensar" e mete a resposta real
+                removeBubble(thinkingId);
+                appendAssistantBubble(data, query);
+                mensagens.push({ role: 'assistant', conteudo: data.resposta });
             } catch (err) {
+                removeBubble(thinkingId);
+                removeBubble(userBubbleId);
                 showError(err.message);
+                // Em caso de erro, desfazer a mensagem do utilizador do estado
+                // para nao confundir a proxima reformulacao contextual.
+                mensagens.pop();
+                // Restaurar o texto no input para o utilizador poder corrigir
+                input.value = query;
             } finally {
                 btn.disabled = false;
-                btn.textContent = 'Consultar';
-                hide('loading');
+                btn.textContent = 'Enviar';
+                input.focus();
             }
         }
 
-        function renderResponse(data) {
-            document.getElementById('metaChunks').textContent = `${data.num_chunks_usados} chunks`;
-            document.getElementById('metaContexto').innerHTML =
-                data.contexto_suficiente ? '&#10003; Contexto suficiente' : '&#9888; Contexto limitado';
+        function novaConversa() {
+            mensagens = [];
+            sessionId = gerarSessionId();
+            const thread = document.getElementById('chatThread');
+            thread.innerHTML = `
+                <div class="chat-empty" id="chatEmpty">
+                    Coloque a sua questao para iniciar a conversa.<br>
+                    <span class="chat-empty-hint">Pode fazer perguntas de seguimento &mdash; o sistema lembra-se do contexto.</span>
+                </div>`;
+            hide('errorCard');
+            document.getElementById('queryInput').focus();
+        }
 
-            document.getElementById('responseBody').innerHTML = formatResponse(data.resposta);
+        // ==================== Render de bubbles ====================
+        function _esconderEmpty() {
+            const empty = document.getElementById('chatEmpty');
+            if (empty) empty.remove();
+        }
 
-            const sourcesList = document.getElementById('sourcesList');
-            sourcesList.innerHTML = '';
-            data.fontes.forEach(fonte => {
-                const tag = document.createElement('div');
-                tag.className = 'source-tag';
-                tag.innerHTML = `<span class="source-type">${fonte.tipo_documento || '?'}</span>
-                    ${fonte.ficheiro}${fonte.pagina ? ', p.' + fonte.pagina : ''}`;
-                sourcesList.appendChild(tag);
-            });
-            show('responseCard');
+        function _scrollParaFundo() {
+            const thread = document.getElementById('chatThread');
+            thread.scrollTop = thread.scrollHeight;
+        }
+
+        function appendUserBubble(texto) {
+            _esconderEmpty();
+            const thread = document.getElementById('chatThread');
+            const id = 'user-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+            const wrap = document.createElement('div');
+            wrap.id = id;
+            wrap.className = 'chat-msg chat-msg-user';
+            wrap.innerHTML = `<div class="chat-bubble chat-bubble-user">${escapeHtml(texto)}</div>`;
+            thread.appendChild(wrap);
+            _scrollParaFundo();
+            return id;
+        }
+
+        function appendThinkingBubble() {
+            _esconderEmpty();
+            const thread = document.getElementById('chatThread');
+            const id = 'thinking-' + Date.now();
+            const wrap = document.createElement('div');
+            wrap.id = id;
+            wrap.className = 'chat-msg chat-msg-assistant';
+            wrap.innerHTML = `
+                <div class="chat-bubble chat-bubble-assistant chat-bubble-thinking">
+                    <div class="thinking-dots"><span></span><span></span><span></span></div>
+                    <span class="thinking-label">A consultar a documentacao...</span>
+                </div>`;
+            thread.appendChild(wrap);
+            _scrollParaFundo();
+            return id;
+        }
+
+        function removeBubble(id) {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        }
+
+        function appendAssistantBubble(data, queryOriginal) {
+            _esconderEmpty();
+            const thread = document.getElementById('chatThread');
+
+            // Cabecalho de transparencia: se a query foi reformulada, mostrar discreto
+            let reformuladaHtml = '';
+            if (data.query_usada && data.query_usada.trim() !== queryOriginal.trim()) {
+                reformuladaHtml = `
+                    <div class="chat-reformulada" title="Query interpretada apos analise do contexto da conversa">
+                        Interpretado como: <em>${escapeHtml(data.query_usada)}</em>
+                    </div>`;
+            }
+
+            // Meta-informacao (chunks + contexto)
+            const ctxBadge = data.contexto_suficiente
+                ? '<span class="chat-meta-ok">&#10003; Contexto suficiente</span>'
+                : '<span class="chat-meta-warn">&#9888; Contexto limitado</span>';
+
+            // Fontes — clicaveis: abrem o PDF na pagina citada (#page=N e suportado
+            // nativamente pelos viewers de PDF do Chrome/Edge/Firefox).
+            let fontesHtml = '';
+            if (data.fontes && data.fontes.length > 0) {
+                const tags = data.fontes.map(f => {
+                    const label = `${escapeHtml(f.ficheiro)}${f.pagina ? ', p.' + f.pagina : ''}`;
+                    const tipo = f.tipo_documento || '?';
+                    const tipoBadge = `<span class="source-type">${tipo}</span>`;
+                    // Se nao tivermos tipo/ficheiro nao conseguimos construir o URL — fica como span
+                    if (!f.tipo_documento || !f.ficheiro) {
+                        return `<span class="source-tag">${tipoBadge}${label}</span>`;
+                    }
+                    const ficheiroEnc = encodeURIComponent(f.ficheiro);
+                    const hash = f.pagina ? `#page=${f.pagina}` : '';
+                    const href = `${API_BASE}/ficheiros/${encodeURIComponent(f.tipo_documento)}/${ficheiroEnc}${hash}`;
+                    return `<a class="source-tag source-tag-link" href="${href}" target="_blank" rel="noopener"
+                        title="Abrir ${escapeHtml(f.ficheiro)}${f.pagina ? ' na pagina ' + f.pagina : ''}">${tipoBadge}${label}</a>`;
+                }).join('');
+                fontesHtml = `
+                    <div class="chat-sources">
+                        <div class="sources-title">Fontes Documentais</div>
+                        <div class="sources-list">${tags}</div>
+                    </div>`;
+            }
+
+            const wrap = document.createElement('div');
+            wrap.className = 'chat-msg chat-msg-assistant';
+            wrap.innerHTML = `
+                <div class="chat-bubble chat-bubble-assistant">
+                    ${reformuladaHtml}
+                    <div class="chat-bubble-body">${formatResponse(data.resposta)}</div>
+                    <div class="chat-meta-row">
+                        <span class="chat-meta-chunks">${data.num_chunks_usados} chunks</span>
+                        ${ctxBadge}
+                    </div>
+                    ${fontesHtml}
+                </div>`;
+            thread.appendChild(wrap);
+            _scrollParaFundo();
         }
 
         function formatResponse(text) {
@@ -178,7 +321,7 @@ const API_BASE = window.location.origin;
 
                 if (!res.ok) {
                     const err = await res.json();
-                    throw new Error(err.detail || 'Erro no upload');
+                    throw new Error(formatErrorDetail(err.detail) || 'Erro no upload');
                 }
 
                 const data = await res.json();
@@ -323,4 +466,28 @@ const API_BASE = window.location.origin;
             const div = document.createElement('div');
             div.textContent = text || '';
             return div.innerHTML;
+        }
+
+        // Formata o campo `detail` de uma resposta de erro do FastAPI.
+        // - HTTPException levantadas pela nossa API: string simples
+        // - Erros de validacao do Pydantic (422): array de objectos
+        //   [{loc: [...], msg: '...', type: '...'}, ...]
+        function formatErrorDetail(detail) {
+            if (!detail) return null;
+            if (typeof detail === 'string') return detail;
+            if (Array.isArray(detail)) {
+                return detail.map(d => {
+                    if (typeof d === 'string') return d;
+                    if (d && typeof d.msg === 'string') {
+                        const campo = Array.isArray(d.loc) ? d.loc[d.loc.length - 1] : null;
+                        return campo ? `${campo}: ${d.msg}` : d.msg;
+                    }
+                    return JSON.stringify(d);
+                }).join('; ');
+            }
+            if (typeof detail === 'object') {
+                if (typeof detail.msg === 'string') return detail.msg;
+                return JSON.stringify(detail);
+            }
+            return String(detail);
         }

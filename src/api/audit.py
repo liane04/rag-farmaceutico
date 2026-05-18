@@ -33,6 +33,7 @@ def registar_consulta(
     duracao_segundos: float,
     fidelidade: float | None = None,
     ip_cliente: str | None = None,
+    session_id: str | None = None,
 ) -> str:
     """
     Regista uma consulta no log de auditoria.
@@ -47,6 +48,7 @@ def registar_consulta(
         duracao_segundos: Tempo total do pipeline.
         fidelidade: Score de fidelidade do output guard.
         ip_cliente: IP do cliente (opcional).
+        session_id: Identificador da sessao de chat (permite reconstruir conversas).
 
     Returns:
         ID do registo de auditoria.
@@ -58,6 +60,7 @@ def registar_consulta(
 
     registo = {
         "id": audit_id,
+        "session_id": session_id,
         "timestamp": timestamp.isoformat(),
         "query_original": query_original,
         "query_usada": query_usada,

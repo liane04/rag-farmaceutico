@@ -52,48 +52,42 @@
                 </div>
             </div>
 
-            <div class="search-card">
-                <div class="search-label">Coloque a sua questao</div>
-                <div class="search-row">
-                    <input type="text" class="search-input" id="queryInput"
-                        placeholder="Ex: Quais sao os efeitos secundarios do ibuprofeno?" autocomplete="off">
-                    <button class="search-btn" id="searchBtn" onclick="submitQuery()">Consultar</button>
+            <div class="chat-card">
+                <div class="chat-header">
+                    <span class="chat-header-title">Conversa</span>
+                    <button class="chat-new-btn" onclick="novaConversa()" title="Limpa o historico e comeca uma nova conversa">
+                        + Nova conversa
+                    </button>
                 </div>
-                <div class="filters-row">
-                    <span class="filter-label">Filtrar por:</span>
-                    <select class="filter-select" id="tipoFilter">
-                        <option value="">Todos os documentos</option>
-                        <option value="bula">Bulas</option>
-                        <option value="monografia">Monografias</option>
-                        <option value="guideline">Guidelines</option>
-                        <option value="norma">Normas</option>
-                    </select>
-                </div>
-            </div>
 
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <div class="loading-text">A processar a sua questao...</div>
-                <div class="loading-steps">Validacao &rarr; Recuperacao &rarr; Reranking &rarr; Geracao</div>
-            </div>
-
-            <div class="error-card" id="errorCard">
-                <span class="error-icon">&#9888;</span>
-                <div class="error-text" id="errorText"></div>
-            </div>
-
-            <div class="response-card" id="responseCard">
-                <div class="response-header">
-                    <span class="response-header-title">Resposta</span>
-                    <div class="response-meta">
-                        <span id="metaChunks"></span>
-                        <span id="metaContexto"></span>
+                <div class="chat-thread" id="chatThread">
+                    <div class="chat-empty" id="chatEmpty">
+                        Coloque a sua questao para iniciar a conversa.<br>
+                        <span class="chat-empty-hint">Pode fazer perguntas de seguimento &mdash; o sistema lembra-se do contexto.</span>
                     </div>
                 </div>
-                <div class="response-body" id="responseBody"></div>
-                <div class="sources-section" id="sourcesSection">
-                    <div class="sources-title">Fontes Documentais</div>
-                    <div class="sources-list" id="sourcesList"></div>
+
+                <div class="error-card" id="errorCard">
+                    <span class="error-icon">&#9888;</span>
+                    <div class="error-text" id="errorText"></div>
+                </div>
+
+                <div class="chat-input-area">
+                    <div class="filters-row">
+                        <span class="filter-label">Filtrar por:</span>
+                        <select class="filter-select" id="tipoFilter">
+                            <option value="">Todos os documentos</option>
+                            <option value="bula">Bulas</option>
+                            <option value="monografia">Monografias</option>
+                            <option value="guideline">Guidelines</option>
+                            <option value="norma">Normas</option>
+                        </select>
+                    </div>
+                    <div class="search-row">
+                        <input type="text" class="search-input" id="queryInput"
+                            placeholder="Ex: Quais sao os efeitos secundarios do ibuprofeno?" autocomplete="off">
+                        <button class="search-btn" id="searchBtn" onclick="submitQuery()">Enviar</button>
+                    </div>
                 </div>
             </div>
         </div>

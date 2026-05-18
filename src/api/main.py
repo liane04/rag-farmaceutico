@@ -64,6 +64,7 @@ async def consulta(pedido: ConsultaRequest, request: Request, background_tasks: 
         resultado = consultar(
             query=pedido.query,
             tipo_documento=pedido.tipo_documento,
+            historia=pedido.historia,
             verbose=False,
         )
     except Exception as e:
@@ -88,6 +89,7 @@ async def consulta(pedido: ConsultaRequest, request: Request, background_tasks: 
         num_chunks=len(resultado.chunks_usados),
         duracao_segundos=duracao,
         ip_cliente=request.client.host if request.client else None,
+        session_id=pedido.session_id,
     )
 
     return ConsultaResponse(
@@ -327,6 +329,42 @@ async def upload(
         total_na_collection=total_collection,
         duracao_segundos=round(duracao, 1),
     )
+
+
+@app.get(
+    "/ficheiros/{tipo}/{nome}",
+    summary="Servir um PDF da pasta de documentos",
+    description="Devolve o ficheiro PDF original (bula, monografia, etc.) para visualizacao no browser. "
+                "Usar com sufixo #page=N para abrir directamente numa pagina especifica.",
+)
+async def ficheiro(tipo: str, nome: str):
+    tipos_validos = {"bula": "bulas", "monografia": "monografias", "guideline": "guidelines", "norma": "normas"}
+    if tipo not in tipos_validos:
+        raise HTTPException(status_code=404, detail=f"Tipo invalido: {tipo}")
+
+    # Defesa contra directory traversal: rejeita separadores, paths absolutos
+    # e qualquer tentativa de subir niveis. O nome tem de ser um ficheiro simples.
+    if "/" in nome or "\\" in nome or ".." in nome or Path(nome).name != nome:
+        raise HTTPException(status_code=400, detail="Nome de ficheiro invalido.")
+    if not nome.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Apenas ficheiros PDF sao servidos.")
+
+    pasta_base = Path(__file__).parent.parent.parent / "data" / "documents"
+    caminho = pasta_base / tipos_validos[tipo] / nome
+
+    # Resolve e verifica que o caminho final continua dentro da pasta esperada
+    # (defesa em profundidade contra symlinks ou paths construidos manualmente).
+    try:
+        caminho_resolvido = caminho.resolve()
+        pasta_resolvida = (pasta_base / tipos_validos[tipo]).resolve()
+        caminho_resolvido.relative_to(pasta_resolvida)
+    except (ValueError, OSError):
+        raise HTTPException(status_code=400, detail="Caminho invalido.")
+
+    if not caminho_resolvido.is_file():
+        raise HTTPException(status_code=404, detail=f"Ficheiro nao encontrado: {nome}")
+
+    return FileResponse(caminho_resolvido, media_type="application/pdf", filename=nome)
 
 
 # --- Interface web ---

@@ -65,3 +65,21 @@ Tenta usar termos tecnicos farmaceuticos equivalentes, nomes de principios ativo
 ou reformulacoes mais especificas.
 
 Responde APENAS com a pergunta reformulada, sem explicacoes."""
+
+
+PROMPT_REFORMULACAO_CONTEXTUAL = """Es um assistente que reescreve perguntas de seguimento numa conversa
+de forma a torna-las autonomas (standalone), incluindo o contexto necessario do historico.
+
+REGRAS:
+1. Se a ULTIMA pergunta ja for autonoma e nao depender do historico, devolve-a EXACTAMENTE como esta.
+2. Se a ULTIMA pergunta usar referencias implicitas ("e a posologia?", "e isso?", "e nos idosos?"),
+   reescreve-a incluindo o medicamento, principio ativo ou tema discutido anteriormente.
+3. Preserva a intencao original. Nao adiciones informacao que o utilizador nao pediu.
+4. Mantem a pergunta concisa.
+
+HISTORICO DA CONVERSA:
+{historia}
+
+ULTIMA PERGUNTA: {query}
+
+Responde APENAS com a pergunta autonoma reescrita, sem explicacoes nem prefixos."""

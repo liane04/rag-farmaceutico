@@ -5,10 +5,20 @@ Define os modelos de request e response para validacao automatica
 e documentacao no Swagger UI.
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
 # --- Request ---
+
+class Mensagem(BaseModel):
+    """Mensagem individual no historico de uma conversa."""
+    role: Literal["user", "assistant"] = Field(
+        description="Quem enviou a mensagem: 'user' (utilizador) ou 'assistant' (sistema).",
+    )
+    conteudo: str = Field(description="Texto da mensagem.")
+
 
 class ConsultaRequest(BaseModel):
     """Pedido de consulta ao sistema RAG."""
@@ -23,6 +33,14 @@ class ConsultaRequest(BaseModel):
         default=None,
         description="Filtro opcional por tipo de documento: bula, monografia, guideline, norma.",
         examples=["bula"],
+    )
+    historia: list[Mensagem] = Field(
+        default_factory=list,
+        description="Historico da conversa (mensagens anteriores). Vazio na primeira pergunta.",
+    )
+    session_id: str | None = Field(
+        default=None,
+        description="Identificador da sessao de chat (UUID gerado pelo frontend). Agrupa mensagens no audit log.",
     )
 
 

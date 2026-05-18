@@ -24,11 +24,13 @@ from src.query.retriever import recuperar
 from src.query.reranker import rerankar
 from src.query.crag import crag_pipeline
 from src.query.generator import gerar_resposta, RespostaRAG
+from src.query.reformulator import reformular_com_historia
 
 
 def consultar(
     query: str,
     tipo_documento: str | None = None,
+    historia: list | None = None,
     verbose: bool = True,
 ) -> RespostaRAG:
     """
@@ -37,16 +39,23 @@ def consultar(
     Args:
         query: Pergunta do utilizador em linguagem natural.
         tipo_documento: Filtro opcional por tipo de documento.
+        historia: Mensagens anteriores da conversa (lista de Mensagem ou dicts
+            com {role, conteudo}). Se nao vazia, a query e reformulada como
+            standalone antes de entrar no retriever.
         verbose: Se True, imprime progresso no terminal.
 
     Returns:
         RespostaRAG com a resposta, fontes e metadados.
     """
     inicio = time.time()
+    historia = historia or []
 
     if verbose:
         print(f"\n=== PIPELINE DE CONSULTA ===")
-        print(f"Query: {query}\n")
+        print(f"Query: {query}")
+        if historia:
+            print(f"Historico: {len(historia)} mensagem(ns) anteriores")
+        print()
 
     # 1. Validacao de input
     if verbose:
@@ -65,17 +74,30 @@ def consultar(
     if verbose:
         print("   Input valido.\n")
 
+    # 1b. Reformulacao contextual (so se houver historico)
+    if historia:
+        if verbose:
+            print("-- Etapa 1b: Reformulacao contextual --")
+        query_para_retrieval = reformular_com_historia(query, historia)
+        if verbose:
+            if query_para_retrieval != query:
+                print(f"   Reformulada: '{query}' -> '{query_para_retrieval}'\n")
+            else:
+                print("   Query ja autonoma (mantida).\n")
+    else:
+        query_para_retrieval = query
+
     # 2. Recuperacao hibrida
     if verbose:
         print("-- Etapa 2: Recuperacao hibrida --")
-    chunks = recuperar(query, tipo_documento=tipo_documento)
+    chunks = recuperar(query_para_retrieval, tipo_documento=tipo_documento)
     if verbose:
         print(f"   {len(chunks)} chunk(s) recuperado(s)\n")
 
     # 3. Reranking
     if verbose:
         print("-- Etapa 3: Reranking (LLM-as-Judge) --")
-    chunks_rerankados = rerankar(query, chunks)
+    chunks_rerankados = rerankar(query_para_retrieval, chunks)
     if verbose:
         print(f"   {len(chunks_rerankados)} chunk(s) apos reranking\n")
 
@@ -92,7 +114,7 @@ def consultar(
     if top_score >= SKIP_CRAG_THRESHOLD:
         chunks_finais = chunks_rerankados
         contexto_suficiente = True
-        query_usada = query
+        query_usada = query_para_retrieval
         if verbose:
             print(f"   Saltado.\n")
     else:
@@ -102,19 +124,19 @@ def consultar(
             return rerankar(nova_query, novos_chunks)
 
         chunks_finais, contexto_suficiente, query_usada = crag_pipeline(
-            query, chunks_rerankados, recuperar_fn=_recuperar_e_rerankar,
+            query_para_retrieval, chunks_rerankados, recuperar_fn=_recuperar_e_rerankar,
         )
         if verbose:
             print(f"   Contexto suficiente: {contexto_suficiente}")
-            if query_usada != query:
-                print(f"   Query reformulada: {query_usada}")
+            if query_usada != query_para_retrieval:
+                print(f"   Query reformulada (CRAG): {query_usada}")
             print()
 
     # 5. Geracao de resposta
     if verbose:
         print("-- Etapa 5: Geracao de resposta --")
     resultado = gerar_resposta(
-        query=query,
+        query=query_para_retrieval,
         chunks=chunks_finais,
         contexto_suficiente=contexto_suficiente,
         query_usada=query_usada,
