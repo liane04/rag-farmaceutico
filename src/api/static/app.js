@@ -75,7 +75,7 @@ const API_BASE = window.location.origin;
             } catch { /* silencioso */ }
         }
 
-        // ==================== Consulta (chat) ====================
+        // ==================== Consulta (chat com streaming SSE) ====================
         async function submitQuery() {
             const input = document.getElementById('queryInput');
             const query = input.value.trim();
@@ -88,20 +88,23 @@ const API_BASE = window.location.origin;
             mensagens.push({ role: 'user', conteudo: query });
             input.value = '';
 
-            // 2. Bubble de "a pensar..." enquanto o backend trabalha
+            // 2. Bubble de "a pensar..." durante o pre-amble (input_guard,
+            //    reformulator, retrieval, reranker, CRAG). Esta bubble e
+            //    substituida pela do assistente quando o primeiro evento `meta`
+            //    chegar (~7-12s).
             const thinkingId = appendThinkingBubble();
 
             btn.disabled = true;
             btn.textContent = 'A processar...';
             hide('errorCard');
 
+            let textoAcumulado = '';
+            let bubbleStream = null;  // {wrap, body} elementos da bubble durante stream
+
             try {
-                // Envia apenas o historico ANTERIOR a esta mensagem — a mensagem
-                // actual vai no campo `query`. O backend acrescenta-a internamente
-                // para a reformulacao contextual.
                 const historiaParaEnviar = mensagens.slice(0, -1);
 
-                const res = await fetch(`${API_BASE}/consulta`, {
+                const res = await fetch(`${API_BASE}/consulta/stream`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -111,24 +114,62 @@ const API_BASE = window.location.origin;
                         session_id: sessionId,
                     }),
                 });
+
+                // Erros de validacao (422) ou HTTP 500 vem como JSON normal,
+                // ANTES do stream comecar. So tratamos como stream se res.ok.
                 if (!res.ok) {
                     const err = await res.json();
                     throw new Error(formatErrorDetail(err.detail) || 'Erro no servidor');
                 }
-                const data = await res.json();
 
-                // 3. Remove bubble de "a pensar" e mete a resposta real
-                removeBubble(thinkingId);
-                appendAssistantBubble(data, query);
-                mensagens.push({ role: 'assistant', conteudo: data.resposta });
+                // Parse de Server-Sent Events a partir do ReadableStream
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+
+                    // Eventos SSE estao separados por '\n\n'. Mantemos o ultimo
+                    // pedaco incompleto em buffer para o ciclo seguinte.
+                    const eventos = buffer.split('\n\n');
+                    buffer = eventos.pop();
+
+                    for (const ev of eventos) {
+                        if (!ev.startsWith('data: ')) continue;
+                        let payload;
+                        try {
+                            payload = JSON.parse(ev.slice(6));
+                        } catch {
+                            continue;
+                        }
+
+                        if (payload.tipo === 'meta') {
+                            // Primeira coisa que chega — substituir thinking pela bubble real
+                            removeBubble(thinkingId);
+                            bubbleStream = criarBubbleStreaming(payload, query);
+                        } else if (payload.tipo === 'token') {
+                            textoAcumulado += payload.texto || '';
+                            if (bubbleStream) atualizarBubbleStreamingRaw(bubbleStream, textoAcumulado);
+                        } else if (payload.tipo === 'done') {
+                            if (payload.texto_extra) textoAcumulado += payload.texto_extra;
+                            if (bubbleStream) finalizarBubbleStreaming(bubbleStream, textoAcumulado, payload);
+                        } else if (payload.tipo === 'error') {
+                            throw new Error(payload.detalhe || 'Erro no pipeline');
+                        }
+                    }
+                }
+
+                // Push da resposta completa ao historico (apos o stream terminar)
+                mensagens.push({ role: 'assistant', conteudo: textoAcumulado });
             } catch (err) {
                 removeBubble(thinkingId);
+                if (bubbleStream && bubbleStream.wrap) bubbleStream.wrap.remove();
                 removeBubble(userBubbleId);
                 showError(err.message);
-                // Em caso de erro, desfazer a mensagem do utilizador do estado
-                // para nao confundir a proxima reformulacao contextual.
                 mensagens.pop();
-                // Restaurar o texto no input para o utilizador poder corrigir
                 input.value = query;
             } finally {
                 btn.disabled = false;
@@ -196,6 +237,82 @@ const API_BASE = window.location.origin;
             if (el) el.remove();
         }
 
+        // ============== Bubble streaming (3 fases) ==============
+        // Fase 1: meta recebida -> criar bubble vazia com fontes ja visiveis
+        function criarBubbleStreaming(meta, queryOriginal) {
+            _esconderEmpty();
+            const thread = document.getElementById('chatThread');
+
+            // Linha "Interpretado como:" se houve reformulacao contextual
+            let reformuladaHtml = '';
+            if (meta.query_usada && meta.query_usada.trim() !== queryOriginal.trim()) {
+                reformuladaHtml = `
+                    <div class="chat-reformulada" title="Query interpretada apos analise do contexto da conversa">
+                        Interpretado como: <em>${escapeHtml(meta.query_usada)}</em>
+                    </div>`;
+            }
+
+            // Fontes (clicaveis) — visiveis logo no inicio do stream
+            let fontesHtml = '';
+            if (meta.fontes && meta.fontes.length > 0) {
+                const tags = meta.fontes.map(f => {
+                    const label = `${escapeHtml(f.ficheiro)}${f.pagina ? ', p.' + f.pagina : ''}`;
+                    const tipoBadge = `<span class="source-type">${f.tipo_documento || '?'}</span>`;
+                    if (!f.tipo_documento || !f.ficheiro) {
+                        return `<span class="source-tag">${tipoBadge}${label}</span>`;
+                    }
+                    const href = `${API_BASE}/ficheiros/${encodeURIComponent(f.tipo_documento)}/${encodeURIComponent(f.ficheiro)}${f.pagina ? '#page=' + f.pagina : ''}`;
+                    return `<a class="source-tag source-tag-link" href="${href}" target="_blank" rel="noopener"
+                        title="Abrir ${escapeHtml(f.ficheiro)}${f.pagina ? ' na pagina ' + f.pagina : ''}">${tipoBadge}${label}</a>`;
+                }).join('');
+                fontesHtml = `
+                    <div class="chat-sources">
+                        <div class="sources-title">Fontes Documentais</div>
+                        <div class="sources-list">${tags}</div>
+                    </div>`;
+            }
+
+            const ctxBadge = meta.contexto_suficiente
+                ? '<span class="chat-meta-ok">&#10003; Contexto suficiente</span>'
+                : '<span class="chat-meta-warn">&#9888; Contexto limitado</span>';
+
+            const wrap = document.createElement('div');
+            wrap.className = 'chat-msg chat-msg-assistant';
+            wrap.innerHTML = `
+                <div class="chat-bubble chat-bubble-assistant chat-bubble-streaming">
+                    ${reformuladaHtml}
+                    <div class="chat-bubble-body"></div>
+                    <div class="chat-meta-row">
+                        <span class="chat-meta-chunks">${meta.num_chunks_usados} chunks</span>
+                        ${ctxBadge}
+                    </div>
+                    ${fontesHtml}
+                </div>`;
+            thread.appendChild(wrap);
+            _scrollParaFundo();
+
+            return {
+                wrap,
+                body: wrap.querySelector('.chat-bubble-body'),
+                bubble: wrap.querySelector('.chat-bubble'),
+            };
+        }
+
+        // Fase 2: tokens a chegar -> mostrar texto cru com cursor a piscar.
+        //         Re-formatamos com markdown so no fim para evitar render parcial estranho.
+        function atualizarBubbleStreamingRaw(refs, texto) {
+            refs.body.innerHTML = `<pre class="chat-body-raw">${escapeHtml(texto)}<span class="chat-cursor"></span></pre>`;
+            _scrollParaFundo();
+        }
+
+        // Fase 3: stream terminou -> aplicar formatResponse, remover cursor/streaming class
+        function finalizarBubbleStreaming(refs, textoFinal, doneEvent) {
+            refs.body.innerHTML = formatResponse(textoFinal);
+            refs.bubble.classList.remove('chat-bubble-streaming');
+            _scrollParaFundo();
+        }
+
+        // Bubble single-shot (usado em fallback ou caso /consulta nao-stream seja chamado)
         function appendAssistantBubble(data, queryOriginal) {
             _esconderEmpty();
             const thread = document.getElementById('chatThread');

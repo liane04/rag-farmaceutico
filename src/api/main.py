@@ -16,7 +16,7 @@ from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.api.models import (
@@ -98,6 +98,79 @@ async def consulta(pedido: ConsultaRequest, request: Request, background_tasks: 
         contexto_suficiente=resultado.contexto_suficiente,
         fontes=[FonteResponse(**f) for f in fontes_dict],
         num_chunks_usados=len(resultado.chunks_usados),
+    )
+
+
+@app.post(
+    "/consulta/stream",
+    summary="Consulta com streaming (Server-Sent Events)",
+    description="Versao streaming de /consulta. Devolve eventos SSE: meta (fontes + chunks), "
+                "token (pedacos de texto da resposta), done (fidelidade + duracao), error. "
+                "Mesma forma de pedido que /consulta.",
+)
+async def consulta_stream(pedido: ConsultaRequest, request: Request, background_tasks: BackgroundTasks):
+    import json
+
+    from src.query.pipeline import consultar_stream
+
+    inicio = time.time()
+    ip_cliente = request.client.host if request.client else None
+
+    def gerar_eventos():
+        # Estado capturado durante o stream para auditar no fim
+        meta_recebida = {}
+        resposta_final = ""
+        duracao = 0.0
+        fidelidade = None
+
+        try:
+            for evento in consultar_stream(
+                query=pedido.query,
+                tipo_documento=pedido.tipo_documento,
+                historia=pedido.historia,
+            ):
+                # Capturar dados para a auditoria sem alterar o evento
+                if evento["tipo"] == "meta":
+                    meta_recebida = evento
+                elif evento["tipo"] == "done":
+                    resposta_final = evento.get("resposta_completa", "")
+                    duracao = evento.get("duracao_segundos", 0.0)
+                    fidelidade = evento.get("fidelidade")
+
+                yield f"data: {json.dumps(evento, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            erro = {"tipo": "error", "detalhe": str(e), "etapa": "pipeline"}
+            yield f"data: {json.dumps(erro, ensure_ascii=False)}\n\n"
+            return
+
+        # Auditoria em background — mesma assinatura que /consulta usa
+        if meta_recebida:
+            fontes_dict = [
+                {"ficheiro": f.get("ficheiro"), "pagina": f.get("pagina"), "tipo_documento": f.get("tipo_documento")}
+                for f in meta_recebida.get("fontes", [])
+            ]
+            background_tasks.add_task(
+                registar_consulta,
+                query_original=pedido.query,
+                query_usada=meta_recebida.get("query_usada", pedido.query),
+                contexto_suficiente=meta_recebida.get("contexto_suficiente", False),
+                resposta=resposta_final,
+                fontes=fontes_dict,
+                num_chunks=meta_recebida.get("num_chunks_usados", 0),
+                duracao_segundos=duracao if duracao else (time.time() - inicio),
+                fidelidade=fidelidade,
+                ip_cliente=ip_cliente,
+                session_id=pedido.session_id,
+            )
+
+    return StreamingResponse(
+        gerar_eventos(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # desactiva buffering em proxies (nginx)
+            "Connection": "keep-alive",
+        },
     )
 
 

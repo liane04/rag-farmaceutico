@@ -16,6 +16,7 @@ Uso:
 import argparse
 import time
 from functools import partial
+from typing import Iterator
 
 from src.config import SKIP_CRAG_THRESHOLD
 from src.guardrails.input_guard import validar_input
@@ -23,7 +24,7 @@ from src.guardrails.output_guard import validar_output
 from src.query.retriever import recuperar
 from src.query.reranker import rerankar
 from src.query.crag import crag_pipeline
-from src.query.generator import gerar_resposta, RespostaRAG
+from src.query.generator import gerar_resposta, gerar_resposta_stream, RespostaRAG, _extrair_fontes
 from src.query.reformulator import reformular_com_historia
 
 
@@ -163,6 +164,114 @@ def consultar(
         print(f"\nFontes: {resultado.fontes}")
 
     return resultado
+
+
+def consultar_stream(
+    query: str,
+    tipo_documento: str | None = None,
+    historia: list | None = None,
+) -> Iterator[dict]:
+    """
+    Versao streaming do pipeline de consulta. Faz yield de eventos a medida que
+    cada etapa termina:
+
+    - {"tipo": "meta", ...}    -- emitido depois do retrieval+reranker+CRAG,
+                                  antes da geracao. Contem fontes, chunks_usados,
+                                  query_usada, contexto_suficiente. Permite ao
+                                  cliente mostrar as fontes ANTES do texto da
+                                  resposta comecar a aparecer.
+    - {"tipo": "token", ...}   -- pedacos de texto da resposta, em ordem
+    - {"tipo": "done", ...}    -- emitido depois do output_guard correr sobre a
+                                  resposta completa. Contem fidelidade, valido,
+                                  duracao_segundos, e a resposta final (com
+                                  eventual disclaimer/nota anexada pelo guard).
+    - {"tipo": "error", ...}   -- erro em qualquer etapa; o cliente deve parar.
+
+    Importante: este pipeline e SINCRONO. As fases pre-geracao (input_guard ->
+    reformulator -> retriever -> reranker -> CRAG) bloqueiam ate terminarem,
+    pelo que o utilizador ve a spinner durante ~7-12s antes do primeiro `token`.
+    """
+    inicio = time.time()
+    historia = historia or []
+
+    # 1. Validacao de input
+    valido, msg_erro = validar_input(query)
+    if not valido:
+        yield {"tipo": "error", "detalhe": msg_erro, "etapa": "input_guard"}
+        return
+
+    # 1b. Reformulacao contextual
+    if historia:
+        query_para_retrieval = reformular_com_historia(query, historia)
+    else:
+        query_para_retrieval = query
+
+    # 2-3. Recuperacao + reranking
+    try:
+        chunks = recuperar(query_para_retrieval, tipo_documento=tipo_documento)
+        chunks_rerankados = rerankar(query_para_retrieval, chunks)
+    except Exception as e:
+        yield {"tipo": "error", "detalhe": f"Falha na recuperacao: {e}", "etapa": "retrieval"}
+        return
+
+    # 4. CRAG (com skip heuristico)
+    top_score = chunks_rerankados[0].score if chunks_rerankados else 0.0
+    if top_score >= SKIP_CRAG_THRESHOLD:
+        chunks_finais = chunks_rerankados
+        contexto_suficiente = True
+        query_usada = query_para_retrieval
+    else:
+        def _recuperar_e_rerankar(nova_query: str) -> list:
+            novos_chunks = recuperar(nova_query, tipo_documento=tipo_documento)
+            return rerankar(nova_query, novos_chunks)
+
+        chunks_finais, contexto_suficiente, query_usada = crag_pipeline(
+            query_para_retrieval, chunks_rerankados, recuperar_fn=_recuperar_e_rerankar,
+        )
+
+    # 5. META — emitir fontes ANTES da geracao para o cliente as mostrar logo
+    fontes = _extrair_fontes(chunks_finais)
+    yield {
+        "tipo": "meta",
+        "query_usada": query_usada,
+        "contexto_suficiente": contexto_suficiente,
+        "num_chunks_usados": len(chunks_finais),
+        "fontes": fontes,
+    }
+
+    # 6. Streaming da geracao
+    pedacos: list[str] = []
+    try:
+        for pedaco in gerar_resposta_stream(
+            query=query_para_retrieval,
+            chunks=chunks_finais,
+            contexto_suficiente=contexto_suficiente,
+            query_usada=query_usada,
+        ):
+            pedacos.append(pedaco)
+            yield {"tipo": "token", "texto": pedaco}
+    except Exception as e:
+        yield {"tipo": "error", "detalhe": f"Falha na geracao: {e}", "etapa": "generator"}
+        return
+
+    resposta_completa = "".join(pedacos)
+
+    # 7. Validacao de output (FORA do caminho critico do utilizador)
+    # Corre depois do stream terminar; eventuais avisos (NOTA DE QUALIDADE)
+    # sao enviados no evento `done` como texto a anexar a bubble.
+    valido, resposta_final, detalhes = validar_output(resposta_completa, chunks_finais)
+    texto_extra = resposta_final[len(resposta_completa):] if len(resposta_final) > len(resposta_completa) else ""
+
+    duracao = time.time() - inicio
+
+    yield {
+        "tipo": "done",
+        "valido": valido,
+        "fidelidade": detalhes.get("fidelidade"),
+        "texto_extra": texto_extra,   # aviso de qualidade a anexar, se houver
+        "resposta_completa": resposta_final,
+        "duracao_segundos": round(duracao, 2),
+    }
 
 
 if __name__ == "__main__":
