@@ -12,174 +12,68 @@
 </head>
 
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="header-left">
-            <img class="header-logo" src="/static/logo.png?v=1" alt="Logo do sistema">
-            <div>
-                <h1>RAG Farmaceutico</h1>
-                <span class="header-subtitle">Sistema de Suporte a Decisao Farmaceutica</span>
-            </div>
-        </div>
-        <div class="status-badge">
-            <span class="status-dot" id="statusDot"></span>
-            <span id="statusText">A verificar...</span>
-        </div>
-    </header>
 
-    <!-- Tabs -->
-    <nav class="tabs-bar">
-        <button class="tab-btn active" onclick="switchTab('consulta')">Consulta</button>
-        <button class="tab-btn" onclick="switchTab('documentos')">Documentos</button>
-        <button class="tab-btn" onclick="switchTab('auditoria')">Auditoria</button>
-    </nav>
-
-    <!-- ==================== TAB: CONSULTA ==================== -->
-    <div class="tab-content active" id="tab-consulta">
-        <div class="container">
-            <div class="stats-bar">
-                <div class="stat-card">
-                    <div class="stat-value" id="statDocs">-</div>
-                    <div class="stat-label">Documentos</div>
+    <!-- ==================== LOGIN VIEW ==================== -->
+    <div id="login-view" class="login-view">
+        <div class="login-card">
+            <img class="login-logo" src="/static/logo.png?v=1" alt="Logo do sistema">
+            <h1 class="login-title">RAG Farmaceutico</h1>
+            <p class="login-subtitle">Sistema de Suporte a Decisao Farmaceutica</p>
+            <form id="loginForm" class="login-form" autocomplete="on">
+                <div class="login-field">
+                    <label for="loginUsername">Utilizador</label>
+                    <input type="text" id="loginUsername" name="username" required autofocus
+                           autocomplete="username">
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="statChunks">-</div>
-                    <div class="stat-label">Chunks Indexados</div>
+                <div class="login-field">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" name="password" required
+                           autocomplete="current-password">
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="statTipos">-</div>
-                    <div class="stat-label">Tipos de Documento</div>
-                </div>
-            </div>
-
-            <div class="chat-card">
-                <div class="chat-header">
-                    <span class="chat-header-title">Conversa</span>
-                    <button class="chat-new-btn" onclick="novaConversa()" title="Limpa o historico e comeca uma nova conversa">
-                        + Nova conversa
-                    </button>
-                </div>
-
-                <div class="chat-thread" id="chatThread">
-                    <div class="chat-empty" id="chatEmpty">
-                        Coloque a sua questao para iniciar a conversa.<br>
-                        <span class="chat-empty-hint">Pode fazer perguntas de seguimento &mdash; o sistema lembra-se do contexto.</span>
-                    </div>
-                </div>
-
-                <div class="error-card" id="errorCard">
-                    <span class="error-icon">&#9888;</span>
-                    <div class="error-text" id="errorText"></div>
-                </div>
-
-                <div class="chat-input-area">
-                    <div class="filters-row">
-                        <span class="filter-label">Filtrar por:</span>
-                        <select class="filter-select" id="tipoFilter">
-                            <option value="">Todos os documentos</option>
-                            <option value="bula">Bulas</option>
-                            <option value="monografia">Monografias</option>
-                            <option value="guideline">Guidelines</option>
-                            <option value="norma">Normas</option>
-                        </select>
-                    </div>
-                    <div class="search-row">
-                        <input type="text" class="search-input" id="queryInput"
-                            placeholder="Ex: Quais sao os efeitos secundarios do ibuprofeno?" autocomplete="off">
-                        <button class="search-btn" id="searchBtn" onclick="submitQuery()">Enviar</button>
-                    </div>
-                </div>
-            </div>
+                <button type="submit" class="login-btn" id="loginBtn">Entrar</button>
+                <div class="login-error" id="loginError" hidden></div>
+            </form>
+            <div class="login-footer">UTAD &middot; 2025/2026</div>
         </div>
     </div>
 
-    <!-- ==================== TAB: DOCUMENTOS ==================== -->
-    <div class="tab-content" id="tab-documentos">
-        <div class="container">
-            <!-- Upload -->
-            <div class="upload-card">
-                <div class="upload-title">Adicionar Documento</div>
-                <div class="upload-form">
-                    <div class="upload-field">
-                        <label>Ficheiro PDF</label>
-                        <input type="file" class="upload-file-input" id="uploadFile" accept=".pdf">
-                    </div>
-                    <div class="upload-field">
-                        <label>Tipo de documento</label>
-                        <select class="upload-select" id="uploadTipo">
-                            <option value="bula">Bula</option>
-                            <option value="monografia">Monografia</option>
-                            <option value="guideline">Guideline</option>
-                            <option value="norma">Norma</option>
-                        </select>
-                    </div>
-                    <button class="upload-btn" id="uploadBtn" onclick="uploadDocument()">Enviar e Indexar</button>
+    <!-- ==================== APP VIEW ==================== -->
+    <div id="app-view" class="app-view" hidden>
+        <header class="header">
+            <div class="header-left">
+                <img class="header-logo" src="/static/logo.png?v=1" alt="Logo do sistema">
+                <div>
+                    <h1>RAG Farmaceutico</h1>
+                    <span class="header-subtitle">Sistema de Suporte a Decisao Farmaceutica</span>
                 </div>
-                <div class="upload-status" id="uploadStatus"></div>
             </div>
+            <div class="header-right">
+                <div class="status-badge">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="statusText">A verificar...</span>
+                </div>
+                <div class="user-chip">
+                    <div class="user-info">
+                        <span class="user-name" id="userName">-</span>
+                        <span class="user-role" id="userRole">-</span>
+                    </div>
+                    <button class="logout-btn" id="logoutBtn" title="Terminar sessao">Sair</button>
+                </div>
+            </div>
+        </header>
 
-            <!-- Stats -->
-            <div class="stats-bar">
-                <div class="stat-card">
-                    <div class="stat-value" id="statDocs2">-</div>
-                    <div class="stat-label">Total Documentos</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="statChunks2">-</div>
-                    <div class="stat-label">Total Chunks</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="statPaginas">-</div>
-                    <div class="stat-label">Total Paginas</div>
-                </div>
-            </div>
-            <div class="docs-grid" id="docsGrid">
-                <div class="audit-empty">A carregar documentos...</div>
-            </div>
+        <nav class="tabs-bar" id="tabsBar"></nav>
+
+        <main id="contentArea"></main>
+
+        <div class="footer">
+            Sistema RAG para Suporte a Decisao Farmaceutica &middot; UTAD 2025/2026
+            <br>
+            <a href="/docs" target="_blank">Documentacao da API (Swagger)</a>
         </div>
     </div>
 
-    <!-- ==================== TAB: AUDITORIA ==================== -->
-    <div class="tab-content" id="tab-auditoria">
-        <div class="container">
-            <div class="audit-controls">
-                <span class="audit-title">Historico de Consultas</span>
-                <div style="display:flex; gap:0.5rem; align-items:center;">
-                    <span class="audit-count" id="auditCount">0 registos</span>
-                    <button class="search-btn" style="padding:0.5rem 1rem; font-size:0.8rem;"
-                        onclick="loadAudit()">Atualizar</button>
-                </div>
-            </div>
-            <div class="audit-table-wrapper">
-                <table class="audit-table">
-                    <thead>
-                        <tr>
-                            <th>Hora</th>
-                            <th>Query</th>
-                            <th>Fontes</th>
-                            <th>Contexto</th>
-                            <th>Duracao</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody id="auditBody">
-                        <tr>
-                            <td colspan="6" class="audit-empty">A carregar...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Footer -->
-    <div class="footer">
-        Sistema RAG para Suporte a Decisao Farmaceutica &middot; UTAD 2025/2026
-        <br>
-        <a href="/docs" target="_blank">Documentacao da API (Swagger)</a>
-    </div>
-
-    <script src="/static/app.js"></script>
+    <script type="module" src="/static/js/main.js"></script>
 </body>
 
 </html>

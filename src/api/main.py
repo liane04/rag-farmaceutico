@@ -12,10 +12,12 @@ Uso:
 """
 
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, UploadFile, File, Form
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, UploadFile, File, Form, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -31,12 +33,23 @@ from src.api.models import (
 )
 from src.api.audit import registar_consulta
 from src.config import QDRANT_COLLECTION
+from src.auth.dependencias import requer_admin, utilizador_atual, utilizador_atual_query
+from src.auth.modelos import DadosToken, Token, Utilizador
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Inicializa a base de dados (cria as tabelas) no arranque da API."""
+    from src.auth.db import inicializar_bd
+    inicializar_bd()
+    yield
 
 
 app = FastAPI(
     title="RAG Farmaceutico",
     description="Sistema de Retrieval-Augmented Generation para suporte a decisao farmaceutica.",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # CORS — permitir acesso de qualquer origem (ajustar em producao)
@@ -48,6 +61,42 @@ app.add_middleware(
 )
 
 
+# --- Autenticação ---
+
+
+@app.post(
+    "/auth/login",
+    response_model=Token,
+    responses={401: {"model": ErroResponse}},
+    summary="Autenticar e obter token de acesso",
+    description="Recebe username e password (formulario) e devolve um token JWT de acesso.",
+)
+async def login(form: OAuth2PasswordRequestForm = Depends()):
+    from src.auth.db import obter_utilizador
+    from src.auth.seguranca import criar_token, verificar_password
+
+    utilizador = obter_utilizador(form.username)
+    if utilizador is None or not verificar_password(form.password, utilizador.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Username ou password incorretos.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = criar_token(utilizador.username, utilizador.papel)
+    return Token(access_token=token)
+
+
+@app.get(
+    "/auth/me",
+    response_model=Utilizador,
+    summary="Dados do utilizador autenticado",
+    description="Devolve o username e o papel do utilizador associado ao token.",
+)
+async def auth_me(utilizador: DadosToken = Depends(utilizador_atual)):
+    return Utilizador(username=utilizador.username, papel=utilizador.papel)
+
+
 @app.post(
     "/consulta",
     response_model=ConsultaResponse,
@@ -55,7 +104,12 @@ app.add_middleware(
     summary="Consultar o sistema RAG",
     description="Envia uma pergunta em linguagem natural e recebe uma resposta fundamentada com citacoes.",
 )
-async def consulta(pedido: ConsultaRequest, request: Request, background_tasks: BackgroundTasks):
+async def consulta(
+    pedido: ConsultaRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    utilizador: DadosToken = Depends(utilizador_atual),
+):
     from src.query.pipeline import consultar
 
     inicio = time.time()
@@ -90,6 +144,8 @@ async def consulta(pedido: ConsultaRequest, request: Request, background_tasks: 
         duracao_segundos=duracao,
         ip_cliente=request.client.host if request.client else None,
         session_id=pedido.session_id,
+        utilizador=utilizador.username,
+        papel=utilizador.papel,
     )
 
     return ConsultaResponse(
@@ -108,7 +164,12 @@ async def consulta(pedido: ConsultaRequest, request: Request, background_tasks: 
                 "token (pedacos de texto da resposta), done (fidelidade + duracao), error. "
                 "Mesma forma de pedido que /consulta.",
 )
-async def consulta_stream(pedido: ConsultaRequest, request: Request, background_tasks: BackgroundTasks):
+async def consulta_stream(
+    pedido: ConsultaRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    utilizador: DadosToken = Depends(utilizador_atual),
+):
     import json
 
     from src.query.pipeline import consultar_stream
@@ -161,6 +222,8 @@ async def consulta_stream(pedido: ConsultaRequest, request: Request, background_
                 fidelidade=fidelidade,
                 ip_cliente=ip_cliente,
                 session_id=pedido.session_id,
+                utilizador=utilizador.username,
+                papel=utilizador.papel,
             )
 
     return StreamingResponse(
@@ -180,7 +243,7 @@ async def consulta_stream(pedido: ConsultaRequest, request: Request, background_
     summary="Ingerir documentos",
     description="Corre o pipeline de ingestao para todos os PDFs na pasta data/documents.",
 )
-async def ingestao():
+async def ingestao(_: DadosToken = Depends(requer_admin)):
     from src.ingestion.pipeline import correr_pipeline_pasta
     from src.ingestion.indexer import criar_cliente, contar_pontos
 
@@ -265,7 +328,7 @@ async def health():
     summary="Listar documentos indexados",
     description="Devolve a lista de documentos indexados no Qdrant com numero de chunks e paginas.",
 )
-async def documentos():
+async def documentos(_: DadosToken = Depends(utilizador_atual)):
     from collections import defaultdict
     from src.ingestion.indexer import criar_cliente
     from qdrant_client.models import ScrollRequest
@@ -315,26 +378,25 @@ async def documentos():
 
 @app.get(
     "/audit",
-    summary="Consultar logs de auditoria",
-    description="Devolve os registos de auditoria do dia atual.",
+    summary="Consultar registos de auditoria",
+    description="Devolve os registos de auditoria mais recentes (todas as consultas ao sistema).",
 )
-async def audit():
-    import json
-    from datetime import datetime, timezone
-    from src.api.audit import AUDIT_DIR
+async def audit(limite: int = 200, _: DadosToken = Depends(requer_admin)):
+    from src.auth.db import listar_consultas
 
-    hoje = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    ficheiro = AUDIT_DIR / f"audit_{hoje}.jsonl"
+    registos = listar_consultas(limite=limite)
+    return {"registos": registos, "total": len(registos)}
 
-    if not ficheiro.exists():
-        return {"registos": [], "total": 0}
 
-    registos = []
-    with open(ficheiro, "r", encoding="utf-8") as f:
-        for linha in f:
-            if linha.strip():
-                registos.append(json.loads(linha))
+@app.get(
+    "/historico",
+    summary="Histórico de consultas do utilizador",
+    description="Devolve as consultas anteriores do utilizador autenticado.",
+)
+async def historico(utilizador: DadosToken = Depends(utilizador_atual), limite: int = 100):
+    from src.auth.db import listar_consultas_por_utilizador
 
+    registos = listar_consultas_por_utilizador(utilizador.username, limite=limite)
     return {"registos": registos, "total": len(registos)}
 
 
@@ -347,6 +409,7 @@ async def audit():
 async def upload(
     ficheiro: UploadFile = File(..., description="Ficheiro PDF a ingerir"),
     tipo_documento: str = Form(..., description="Tipo: bula, monografia, guideline, norma"),
+    _: DadosToken = Depends(requer_admin),
 ):
     import shutil
 
@@ -410,7 +473,11 @@ async def upload(
     description="Devolve o ficheiro PDF original (bula, monografia, etc.) para visualizacao no browser. "
                 "Usar com sufixo #page=N para abrir directamente numa pagina especifica.",
 )
-async def ficheiro(tipo: str, nome: str):
+async def ficheiro(
+    tipo: str,
+    nome: str,
+    _: DadosToken = Depends(utilizador_atual_query),
+):
     tipos_validos = {"bula": "bulas", "monografia": "monografias", "guideline": "guidelines", "norma": "normas"}
     if tipo not in tipos_validos:
         raise HTTPException(status_code=404, detail=f"Tipo invalido: {tipo}")

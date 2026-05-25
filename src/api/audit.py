@@ -1,26 +1,17 @@
 """
-Registo de auditoria para todas as interacoes com o sistema (RF09, EU AI Act Art. 12).
+Registo de auditoria das interacoes com o sistema (RF09, EU AI Act Art. 12).
 
-Grava um registo imutavel (append-only) de cada consulta com:
-- Timestamp
-- Query original e query usada (se reformulada pelo CRAG)
-- Chunks recuperados e scores
-- Resposta gerada
-- Metricas de qualidade (fidelidade, contexto suficiente)
+Cada consulta ao sistema RAG e gravada como uma linha na tabela SQLite
+`consultas`. O registo e apenas inserido -- nunca alterado nem apagado --
+mantendo o caracter append-only do log de auditoria.
+
+A mesma tabela serve o endpoint /audit (visao global, para administradores)
+e o /historico (consultas de um utilizador).
 """
 
-import json
-import os
 from datetime import datetime, timezone
-from pathlib import Path
 
-
-AUDIT_DIR = Path(__file__).parent.parent.parent / "data" / "audit"
-
-
-def _garantir_pasta():
-    """Cria a pasta de auditoria se nao existir."""
-    AUDIT_DIR.mkdir(parents=True, exist_ok=True)
+from src.auth.db import inserir_consulta
 
 
 def registar_consulta(
@@ -34,13 +25,15 @@ def registar_consulta(
     fidelidade: float | None = None,
     ip_cliente: str | None = None,
     session_id: str | None = None,
-) -> str:
+    utilizador: str | None = None,
+    papel: str | None = None,
+) -> int:
     """
-    Regista uma consulta no log de auditoria.
+    Regista uma consulta na tabela de auditoria `consultas`.
 
     Args:
         query_original: Pergunta original do utilizador.
-        query_usada: Query apos possivel reformulacao CRAG.
+        query_usada: Query apos possivel reformulacao.
         contexto_suficiente: Flag do CRAG.
         resposta: Texto da resposta gerada.
         fontes: Lista de fontes citadas.
@@ -48,20 +41,18 @@ def registar_consulta(
         duracao_segundos: Tempo total do pipeline.
         fidelidade: Score de fidelidade do output guard.
         ip_cliente: IP do cliente (opcional).
-        session_id: Identificador da sessao de chat (permite reconstruir conversas).
+        session_id: Identificador da sessao de chat.
+        utilizador: Username do utilizador autenticado (None se anonimo).
+        papel: Papel do utilizador autenticado (None se anonimo).
 
     Returns:
-        ID do registo de auditoria.
+        id do registo criado na tabela `consultas`.
     """
-    _garantir_pasta()
-
-    timestamp = datetime.now(timezone.utc)
-    audit_id = timestamp.strftime("%Y%m%d_%H%M%S_%f")
-
     registo = {
-        "id": audit_id,
         "session_id": session_id,
-        "timestamp": timestamp.isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "utilizador": utilizador,
+        "papel": papel,
         "query_original": query_original,
         "query_usada": query_usada,
         "contexto_suficiente": contexto_suficiente,
@@ -72,10 +63,4 @@ def registar_consulta(
         "fidelidade": fidelidade,
         "ip_cliente": ip_cliente,
     }
-
-    # Append ao ficheiro diario (um ficheiro por dia)
-    ficheiro = AUDIT_DIR / f"audit_{timestamp.strftime('%Y-%m-%d')}.jsonl"
-    with open(ficheiro, "a", encoding="utf-8") as f:
-        f.write(json.dumps(registo, ensure_ascii=False) + "\n")
-
-    return audit_id
+    return inserir_consulta(registo)

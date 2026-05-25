@@ -44,3 +44,15 @@ SKIP_CRAG_THRESHOLD = 0.85
 
 # --- Diretórios ---
 DOCUMENTS_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "documents")
+
+# --- Autenticação ---
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRA_MINUTOS = int(os.getenv("JWT_EXPIRA_MINUTOS", "480"))  # 8h (um turno de trabalho)
+
+# Base de dados SQLite dos utilizadores
+AUTH_DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "auth.db")
+
+# Passwords das contas iniciais (seed) — lidas do .env, nunca versionadas
+SEED_ADMIN_PASSWORD = os.getenv("SEED_ADMIN_PASSWORD")
+SEED_FARMACEUTICO_PASSWORD = os.getenv("SEED_FARMACEUTICO_PASSWORD")

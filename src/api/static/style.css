@@ -1239,4 +1239,223 @@
         .chat-input-area .filters-row {
             margin: 0;
         }
+
+        /* ===== Login view ===== */
+        /* O atributo `hidden` tem de vencer o display:flex/block; sem este
+           reforco, .login-view continuaria visivel apos o login. */
+        [hidden] {
+            display: none !important;
+        }
+
+        .login-view {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 50%, var(--primary-light) 100%);
+        }
+
+        .login-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 2.5rem 2.25rem 2rem;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.18);
+            width: 100%;
+            max-width: 380px;
+            text-align: center;
+        }
+
+        .login-logo {
+            width: 3.5rem;
+            height: 3.5rem;
+            margin: 0 auto 0.85rem;
+            display: block;
+        }
+
+        .login-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--primary-dark);
+            margin-bottom: 0.3rem;
+            letter-spacing: -0.01em;
+        }
+
+        .login-subtitle {
+            font-size: 0.82rem;
+            color: var(--text-light);
+            margin-bottom: 1.75rem;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+            text-align: left;
+        }
+
+        .login-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        .login-field label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .login-field input {
+            padding: 0.7rem 0.85rem;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.92rem;
+            font-family: inherit;
+            color: var(--text);
+            transition: border-color 0.2s, box-shadow 0.2s;
+            outline: none;
+        }
+
+        .login-field input:focus {
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
+        }
+
+        .login-btn {
+            margin-top: 0.5rem;
+            padding: 0.8rem 1rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.92rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.05s;
+            font-family: inherit;
+        }
+
+        .login-btn:hover {
+            background: var(--primary-dark);
+        }
+
+        .login-btn:active {
+            transform: scale(0.99);
+        }
+
+        .login-btn:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        .login-error {
+            background: #fef2f2;
+            border: 1.5px solid #fecaca;
+            color: #991b1b;
+            padding: 0.65rem 0.85rem;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            margin-top: 0.25rem;
+            text-align: center;
+        }
+
+        .login-footer {
+            margin-top: 1.5rem;
+            font-size: 0.72rem;
+            color: #94a3b8;
+            letter-spacing: 0.04em;
+        }
+
+        /* ===== Header right (status + user chip) ===== */
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+        }
+
+        .user-chip {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 0.35rem 0.5rem 0.35rem 0.85rem;
+            border-radius: 22px;
+            backdrop-filter: blur(10px);
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.1;
+            font-size: 0.78rem;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: white;
+        }
+
+        .user-role {
+            font-size: 0.68rem;
+            opacity: 0.85;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .user-role-admin {
+            color: #fef9c3;
+        }
+
+        .user-role-farmaceutico {
+            color: #bbf7d0;
+        }
+
+        .logout-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 0.35rem 0.85rem;
+            border-radius: 16px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+            font-family: inherit;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* ===== Audit user column ===== */
+        .audit-user {
+            font-weight: 600;
+            font-size: 0.82rem;
+        }
+
+        .audit-role {
+            font-size: 0.7rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-left: 0.25rem;
+        }
+
+        .audit-user-anon {
+            color: var(--text-light);
+            font-style: italic;
+            font-weight: 400;
+        }
+
+        @media (max-width: 640px) {
+            .header-right {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            .login-card {
+                padding: 1.75rem 1.25rem;
+            }
         }
