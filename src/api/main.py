@@ -39,9 +39,11 @@ from src.auth.modelos import DadosToken, Token, Utilizador
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Inicializa a base de dados (cria as tabelas) no arranque da API."""
+    """Inicializa a base de dados e cria as contas iniciais no arranque da API."""
     from src.auth.db import inicializar_bd
+    from src.auth.seed import correr_seed
     inicializar_bd()
+    correr_seed()
     yield
 
 

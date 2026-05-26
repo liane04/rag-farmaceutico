@@ -7,4 +7,4 @@ __pycache__/
 tests/
 docs/
 *.md
-data/audit/
+data/
