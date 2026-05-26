@@ -12,7 +12,7 @@ Uso:
 """
 
 from src.config import SEED_ADMIN_PASSWORD, SEED_FARMACEUTICO_PASSWORD
-from src.auth.db import criar_utilizador, inicializar_bd, listar_utilizadores, obter_utilizador
+from src.auth.db import atualizar_password_utilizador, criar_utilizador, inicializar_bd, listar_utilizadores, obter_utilizador
 from src.auth.seguranca import gerar_hash_password
 
 
@@ -33,7 +33,8 @@ def correr_seed() -> None:
             print(f"  AVISO: password de '{username}' nao definida no .env -- conta ignorada.")
             continue
         if obter_utilizador(username) is not None:
-            print(f"  Conta '{username}' ja existe -- ignorada.")
+            atualizar_password_utilizador(username, gerar_hash_password(password))
+            print(f"  Conta '{username}' ja existe -- password atualizada.")
             continue
         criar_utilizador(username, gerar_hash_password(password), papel)
         print(f"  Conta '{username}' criada (papel: {papel}).")

@@ -127,6 +127,16 @@ def criar_utilizador(username: str, password_hash: str, papel: str) -> Utilizado
     )
 
 
+def atualizar_password_utilizador(username: str, password_hash: str) -> None:
+    """Atualiza o hash da password de um utilizador existente."""
+    with closing(_ligar()) as ligacao:
+        ligacao.execute(
+            "UPDATE utilizadores SET password_hash = ? WHERE username = ?",
+            (password_hash, username),
+        )
+        ligacao.commit()
+
+
 def listar_utilizadores() -> list[UtilizadorEmBD]:
     """Devolve todos os utilizadores registados, ordenados por id."""
     with closing(_ligar()) as ligacao:
