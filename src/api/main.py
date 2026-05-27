@@ -11,9 +11,12 @@ Uso:
     uvicorn src.api.main:app --reload --port 8000
 """
 
+import logging
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, UploadFile, File, Form, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -43,7 +46,11 @@ async def lifespan(app: FastAPI):
     from src.auth.db import inicializar_bd
     from src.auth.seed import correr_seed
     inicializar_bd()
-    correr_seed()
+    try:
+        correr_seed()
+    except RuntimeError as e:
+        logger.critical("ERRO DE CONFIGURACAO: %s", e)
+        raise
     yield
 
 

@@ -30,8 +30,10 @@ def correr_seed() -> None:
 
     for username, papel, password in CONTAS_INICIAIS:
         if not password:
-            print(f"  AVISO: password de '{username}' nao definida no .env -- conta ignorada.")
-            continue
+            raise RuntimeError(
+                f"SEED_{username.upper()}_PASSWORD nao esta definida. "
+                "Adiciona a variavel no .env ou no UI do Coolify e reinicia a API."
+            )
         if obter_utilizador(username) is not None:
             atualizar_password_utilizador(username, gerar_hash_password(password))
             print(f"  Conta '{username}' ja existe -- password atualizada.")
