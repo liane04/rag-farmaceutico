@@ -23,6 +23,7 @@ services:
       - QDRANT_PORT=6333
     volumes:
       - ./data:/app/data
+      - ./.env:/app/.env:ro
     depends_on:
       - qdrant
     restart: unless-stopped
