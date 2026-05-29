@@ -2,26 +2,71 @@
 // dois papeis — farmaceutico e admin. O backend e stateless: o historico
 // da conversa vive no cliente e e enviado em cada pedido.
 
-import { apiFetch, ficheiroUrl, getToken, formatarDetalheErro } from './api.js';
+import { apiFetch, ficheiroUrl, getToken, formatarDetalheErro, humanizarErro } from './api.js';
+import { mountCustomSelect, getCustomSelectValue } from './dropdown.js';
+
+const CHEVRON_SVG = `<svg class="custom-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
 
 let mensagens = [];     // [{role: 'user'|'assistant', conteudo: '...'}]
 let sessionId = null;   // UUID gerado no cliente, agrupa registos no audit log
+
+// Sugestoes de consultas exibidas no empty state. Servem de guia ao
+// utilizador e de showcase em demonstracoes — sao queries representativas
+// do dominio coberto pelo corpus (bulas, monografias, guidelines, normas).
+const SUGESTOES_CONSULTA = [
+    'Quais sao os efeitos secundarios do ibuprofeno?',
+    'Posologia recomendada do paracetamol em adultos',
+    'Quais as contraindicacoes da amoxicilina?',
+    'Interacoes medicamentosas relevantes do diclofenac',
+];
+
+// Icones SVG inline (estilo Lucide). Inline para evitar request adicional
+// e manter o "stroke" sempre alinhado com a cor do tema (currentColor).
+const ICON_DOC = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>`;
+const ICON_LAYERS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`;
+const ICON_TAG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`;
+const ICON_CHAT = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+
+function _emptyHtml() {
+    const sugestoesHtml = SUGESTOES_CONSULTA.map(q =>
+        `<button class="chat-suggestion" data-query="${escapeHtml(q)}" type="button">
+            <span class="chat-suggestion-arrow">&rsaquo;</span><span>${escapeHtml(q)}</span>
+        </button>`
+    ).join('');
+
+    return `
+        <div class="chat-empty" id="chatEmpty">
+            <div class="chat-empty-icon">${ICON_CHAT}</div>
+            <h3 class="chat-empty-title">Comece uma consulta</h3>
+            <div class="chat-suggestions-label">Exemplos de consultas</div>
+            <div class="chat-suggestions">${sugestoesHtml}</div>
+        </div>`;
+}
 
 export function renderChat(container) {
     container.innerHTML = `
         <div class="container">
             <div class="stats-bar">
                 <div class="stat-card">
-                    <div class="stat-value" id="statDocs">-</div>
-                    <div class="stat-label">Documentos</div>
+                    <div class="stat-card-icon">${ICON_DOC}</div>
+                    <div class="stat-card-body">
+                        <div class="stat-value" id="statDocs">-</div>
+                        <div class="stat-label">Documentos</div>
+                    </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value" id="statChunks">-</div>
-                    <div class="stat-label">Chunks Indexados</div>
+                    <div class="stat-card-icon">${ICON_LAYERS}</div>
+                    <div class="stat-card-body">
+                        <div class="stat-value" id="statChunks">-</div>
+                        <div class="stat-label">Chunks Indexados</div>
+                    </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value" id="statTipos">-</div>
-                    <div class="stat-label">Tipos de Documento</div>
+                    <div class="stat-card-icon">${ICON_TAG}</div>
+                    <div class="stat-card-body">
+                        <div class="stat-value" id="statTipos">-</div>
+                        <div class="stat-label">Tipos de Documento</div>
+                    </div>
                 </div>
             </div>
 
@@ -33,12 +78,7 @@ export function renderChat(container) {
                     </button>
                 </div>
 
-                <div class="chat-thread" id="chatThread">
-                    <div class="chat-empty" id="chatEmpty">
-                        Coloque a sua questao para iniciar a conversa.<br>
-                        <span class="chat-empty-hint">Pode fazer perguntas de seguimento &mdash; o sistema lembra-se do contexto.</span>
-                    </div>
-                </div>
+                <div class="chat-thread" id="chatThread">${_emptyHtml()}</div>
 
                 <div class="error-card" id="errorCard">
                     <span class="error-icon">&#9888;</span>
@@ -48,13 +88,19 @@ export function renderChat(container) {
                 <div class="chat-input-area">
                     <div class="filters-row">
                         <span class="filter-label">Filtrar por:</span>
-                        <select class="filter-select" id="tipoFilter">
-                            <option value="">Todos os documentos</option>
-                            <option value="bula">Bulas</option>
-                            <option value="monografia">Monografias</option>
-                            <option value="guideline">Guidelines</option>
-                            <option value="norma">Normas</option>
-                        </select>
+                        <div class="custom-select" id="tipoFilter" data-value="">
+                            <button type="button" class="custom-select-button" aria-haspopup="listbox" aria-expanded="false">
+                                <span class="custom-select-label">Todos os documentos</span>
+                                ${CHEVRON_SVG}
+                            </button>
+                            <ul class="custom-select-menu" role="listbox" hidden>
+                                <li class="custom-select-option" data-value="" role="option">Todos os documentos</li>
+                                <li class="custom-select-option" data-value="bula" role="option">Bulas</li>
+                                <li class="custom-select-option" data-value="monografia" role="option">Monografias</li>
+                                <li class="custom-select-option" data-value="guideline" role="option">Guidelines</li>
+                                <li class="custom-select-option" data-value="norma" role="option">Normas</li>
+                            </ul>
+                        </div>
                     </div>
                     <div class="search-row">
                         <input type="text" class="search-input" id="queryInput"
@@ -72,6 +118,8 @@ export function renderChat(container) {
     });
     document.getElementById('searchBtn').addEventListener('click', submitQuery);
     document.getElementById('novaConversaBtn').addEventListener('click', novaConversa);
+    mountCustomSelect(document.getElementById('tipoFilter'));
+    _ligarSugestoes();
     loadStats();
 }
 
@@ -83,20 +131,34 @@ function gerarSessionId() {
 async function loadStats() {
     try {
         const res = await apiFetch('/documentos');
-        if (!res.ok) return;
+        if (!res.ok) { _markStatsUnavailable(); return; }
         const data = await res.json();
         document.getElementById('statDocs').textContent = data.total_documentos;
         document.getElementById('statChunks').textContent = data.total_chunks;
         const tipos = new Set(data.documentos.map(d => d.tipo_documento));
         document.getElementById('statTipos').textContent = tipos.size;
-    } catch { /* silencioso — o backend pode estar sem documentos ainda */ }
+    } catch {
+        _markStatsUnavailable();
+    }
+}
+
+// Estado visualmente coerente quando o Qdrant esta inacessivel: em vez de
+// um "-" anonimo, mostramos um em-dash cinzento em todos os cards.
+function _markStatsUnavailable() {
+    for (const id of ['statDocs', 'statChunks', 'statTipos']) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.textContent = '—';
+            el.classList.add('unavailable');
+        }
+    }
 }
 
 async function submitQuery() {
     const input = document.getElementById('queryInput');
     const query = input.value.trim();
     if (!query) return;
-    const tipo = document.getElementById('tipoFilter').value || null;
+    const tipo = getCustomSelectValue(document.getElementById('tipoFilter')) || null;
     const btn = document.getElementById('searchBtn');
 
     // 1. Append imediato da mensagem do utilizador (UI responsiva).
@@ -180,7 +242,7 @@ async function submitQuery() {
         removeBubble(thinkingId);
         if (bubbleStream && bubbleStream.wrap) bubbleStream.wrap.remove();
         removeBubble(userBubbleId);
-        showError(err.message);
+        showError(humanizarErro(err.message, 'consulta'));
         mensagens.pop();
         input.value = query;
     } finally {
@@ -194,13 +256,24 @@ function novaConversa() {
     mensagens = [];
     sessionId = gerarSessionId();
     const thread = document.getElementById('chatThread');
-    thread.innerHTML = `
-        <div class="chat-empty" id="chatEmpty">
-            Coloque a sua questao para iniciar a conversa.<br>
-            <span class="chat-empty-hint">Pode fazer perguntas de seguimento &mdash; o sistema lembra-se do contexto.</span>
-        </div>`;
+    thread.innerHTML = _emptyHtml();
+    _ligarSugestoes();
     hide('errorCard');
     document.getElementById('queryInput').focus();
+}
+
+// Liga o handler de clique aos chips de sugestao. Tem de correr sempre que
+// o empty state e re-renderizado (renderChat e novaConversa).
+function _ligarSugestoes() {
+    document.querySelectorAll('.chat-suggestion').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const query = btn.dataset.query;
+            if (!query) return;
+            const input = document.getElementById('queryInput');
+            input.value = query;
+            submitQuery();
+        });
+    });
 }
 
 // ============ Render de bubbles ============

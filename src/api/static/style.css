@@ -168,21 +168,60 @@
             border-radius: var(--radius);
             padding: 1.1rem 1.25rem;
             box-shadow: var(--shadow);
-            text-align: center;
+            display: flex;
+            align-items: center;
+            gap: 0.9rem;
+            border-left: 3px solid var(--primary);
+            transition: box-shadow 0.2s ease, transform 0.15s ease;
+        }
+
+        .stat-card:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-1px);
+        }
+
+        .stat-card-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 10px;
+            background: rgba(15, 118, 110, 0.08);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .stat-card-icon svg {
+            width: 1.35rem;
+            height: 1.35rem;
+        }
+
+        .stat-card-body {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
         }
 
         .stat-value {
-            font-size: 1.5rem;
+            font-size: 1.55rem;
             font-weight: 700;
             color: var(--primary);
+            line-height: 1.1;
+        }
+
+        .stat-value.unavailable {
+            color: #94a3b8;
+            font-weight: 500;
         }
 
         .stat-label {
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             color: var(--text-light);
-            margin-top: 0.15rem;
+            margin-top: 0.2rem;
             text-transform: uppercase;
-            letter-spacing: 0.04em;
+            letter-spacing: 0.05em;
+            font-weight: 600;
         }
 
         /* ===== Search ===== */
@@ -803,6 +842,14 @@
             flex-wrap: wrap;
         }
 
+        /* Altura comum para os 3 elementos da linha de upload, para que
+           fiquem alinhados pelo fundo (align-items: flex-end). */
+        .upload-file-wrapper,
+        .upload-select,
+        .upload-btn {
+            height: 2.65rem;
+        }
+
         .upload-field {
             display: flex;
             flex-direction: column;
@@ -815,24 +862,70 @@
             color: var(--text-light);
         }
 
-        .upload-file-input {
-            padding: 0.5rem;
+        /* Wrapper que substitui o <input type=file> nativo. O input real
+           esta escondido (.upload-file-hidden) e ativado por um <label>
+           visivel — abordagem que permite centragem fiavel em qualquer
+           browser, ao contrario de tentar estilizar ::file-selector-button. */
+        .upload-file-wrapper {
+            height: 2.65rem;
             border: 2px dashed var(--border);
             border-radius: 8px;
-            font-size: 0.85rem;
-            font-family: inherit;
-            cursor: pointer;
             background: #fafbfc;
-            transition: border-color 0.2s;
-            min-width: 250px;
+            padding: 0 0.5rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.7rem;
+            min-width: 290px;
+            transition: border-color 0.15s ease;
         }
 
-        .upload-file-input:hover {
+        .upload-file-wrapper:hover {
             border-color: var(--primary-light);
         }
 
+        /* Especificidade extra (.upload-file-wrapper antes) para vencer
+           a regra ".upload-field label" que pinta os labels do field em
+           cinzento (intencional para o label "Ficheiro PDF" acima). */
+        .upload-file-wrapper .upload-file-button {
+            background: var(--primary);
+            color: white;
+            height: 1.9rem;
+            padding: 0 0.95rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 600;
+            font-family: inherit;
+            display: inline-flex;
+            align-items: center;
+            transition: background 0.15s ease;
+            flex-shrink: 0;
+        }
+
+        .upload-file-wrapper .upload-file-button:hover {
+            background: var(--primary-dark);
+        }
+
+        .upload-file-name {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .upload-file-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+        }
+
         .upload-select {
-            padding: 0.6rem 0.85rem;
+            padding: 0 0.85rem;
             border: 1.5px solid var(--border);
             border-radius: 8px;
             font-size: 0.85rem;
@@ -896,6 +989,102 @@
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
             flex-shrink: 0;
+        }
+
+        /* ===== Custom select (substitui <select> nativo para
+           ter o dropdown totalmente estilizavel) ===== */
+        .custom-select {
+            position: relative;
+            display: inline-block;
+            min-width: 180px;
+        }
+
+        .custom-select-button {
+            width: 100%;
+            height: 2.65rem;
+            background: white;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            padding: 0 0.85rem;
+            font-size: 0.85rem;
+            font-family: inherit;
+            color: var(--text);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .custom-select-button:hover,
+        .custom-select-button[aria-expanded="true"] {
+            border-color: var(--primary-light);
+        }
+
+        .custom-select-button[aria-expanded="true"] {
+            box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
+        }
+
+        .custom-select-chevron {
+            width: 1rem;
+            height: 1rem;
+            color: var(--text-light);
+            transition: transform 0.15s ease;
+            flex-shrink: 0;
+        }
+
+        .custom-select-button[aria-expanded="true"] .custom-select-chevron {
+            transform: rotate(180deg);
+            color: var(--primary);
+        }
+
+        .custom-select-menu {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            z-index: 50;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.3rem;
+            margin: 0;
+            list-style: none;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+            max-height: 240px;
+            overflow-y: auto;
+        }
+
+        /* Aplicada quando o menu abre para cima por nao caber abaixo. */
+        .custom-select-menu--top {
+            top: auto;
+            bottom: calc(100% + 4px);
+            box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.1);
+        }
+
+        .custom-select-option {
+            padding: 0.5rem 0.7rem;
+            font-size: 0.85rem;
+            color: var(--text);
+            cursor: pointer;
+            border-radius: 6px;
+            transition: background 0.1s ease, color 0.1s ease;
+        }
+
+        .custom-select-option:hover {
+            background: rgba(15, 118, 110, 0.08);
+            color: var(--primary-dark);
+        }
+
+        .custom-select-option.selected {
+            background: var(--primary);
+            color: white;
+        }
+
+        .custom-select-option.selected:hover {
+            background: var(--primary-dark);
+            color: white;
         }
 
         /* ===== Footer ===== */
@@ -1015,16 +1204,95 @@
         }
 
         .chat-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             text-align: center;
             color: var(--text-light);
-            font-size: 0.95rem;
-            padding: 3rem 1rem;
-            line-height: 1.7;
+            padding: 2.5rem 1.5rem 2rem;
+            gap: 0.5rem;
+        }
+
+        .chat-empty-icon {
+            width: 3.5rem;
+            height: 3.5rem;
+            border-radius: 50%;
+            background: rgba(15, 118, 110, 0.08);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0.4rem;
+        }
+
+        .chat-empty-icon svg {
+            width: 1.7rem;
+            height: 1.7rem;
+        }
+
+        .chat-empty-title {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--text);
+            margin: 0;
         }
 
         .chat-empty-hint {
-            font-size: 0.8rem;
-            opacity: 0.8;
+            font-size: 0.85rem;
+            color: var(--text-light);
+            max-width: 480px;
+            line-height: 1.55;
+        }
+
+        .chat-suggestions-label {
+            margin-top: 1.5rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .chat-suggestions {
+            margin-top: 0.7rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 0.55rem;
+            max-width: 640px;
+            width: 100%;
+        }
+
+        .chat-suggestion {
+            text-align: left;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.7rem 0.9rem;
+            font-size: 0.83rem;
+            color: var(--text);
+            cursor: pointer;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
+            font-family: inherit;
+            line-height: 1.4;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.4rem;
+        }
+
+        .chat-suggestion:hover {
+            border-color: var(--primary);
+            box-shadow: 0 2px 8px rgba(15, 118, 110, 0.1);
+        }
+
+        .chat-suggestion:active {
+            transform: translateY(1px);
+        }
+
+        .chat-suggestion-arrow {
+            color: var(--primary);
+            font-weight: 700;
+            flex-shrink: 0;
+            line-height: 1.4;
         }
 
         .chat-msg {
@@ -1051,7 +1319,7 @@
         }
 
         .chat-bubble-user {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            background: var(--primary);
             color: white;
             border-bottom-right-radius: 4px;
         }
@@ -1267,10 +1535,16 @@
         }
 
         .login-logo {
-            width: 3.5rem;
-            height: 3.5rem;
+            width: 4.2rem;
+            height: 4.2rem;
+            box-sizing: content-box;
+            padding: 0.8rem;
             margin: 0 auto 0.85rem;
             display: block;
+            background: var(--primary);
+            border-radius: 50%;
+            box-shadow: 0 6px 16px rgba(15, 118, 110, 0.25);
+            object-fit: contain;
         }
 
         .login-title {

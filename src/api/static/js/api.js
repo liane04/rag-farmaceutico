@@ -95,3 +95,31 @@ export function formatarDetalheErro(detail) {
     if (typeof detail === 'object' && typeof detail.msg === 'string') return detail.msg;
     return String(detail);
 }
+
+// Traduz erros tecnicos (stacktrace do backend, erros de socket do SO) em
+// mensagens compreensiveis para o utilizador final. O contexto opcional
+// adapta o texto a accao em curso (consulta vs upload vs generico).
+export function humanizarErro(msg, contexto) {
+    const original = msg || '';
+    const m = original.toLowerCase();
+    if (m.includes('connection refused') || m.includes('winerror 10061') ||
+        m.includes('errno 111') || m.includes('falha na recuperacao')) {
+        if (contexto === 'consulta') {
+            return 'O servico de pesquisa esta temporariamente indisponivel. Tente novamente em instantes.';
+        }
+        if (contexto === 'indexacao') {
+            return 'O servico de indexacao esta temporariamente indisponivel. Tente novamente em instantes.';
+        }
+        return 'O sistema esta temporariamente indisponivel. Tente novamente em instantes.';
+    }
+    if (m.includes('timeout') || m.includes('timed out')) {
+        return 'O sistema demorou demasiado a responder. Tente novamente.';
+    }
+    if (m.includes('rate limit') || m.includes('429')) {
+        return 'Demasiados pedidos em pouco tempo. Aguarde alguns segundos e tente de novo.';
+    }
+    if (original.length > 220) {
+        return 'Ocorreu um erro inesperado. Tente novamente em instantes.';
+    }
+    return original || 'Ocorreu um erro inesperado.';
+}

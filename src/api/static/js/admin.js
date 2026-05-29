@@ -1,7 +1,10 @@
 // Vistas exclusivas do admin: documentos (com upload) e auditoria.
 // Cada vista renderiza-se num container e tem o seu proprio loader.
 
-import { apiFetch, apiGet, apiPostForm, formatarDetalheErro } from './api.js';
+import { apiFetch, apiGet, apiPostForm, formatarDetalheErro, humanizarErro } from './api.js';
+import { mountCustomSelect, getCustomSelectValue } from './dropdown.js';
+
+const CHEVRON_SVG = `<svg class="custom-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
 
 // ============ Vista: Documentos + Upload ============
 export function renderDocumentos(container) {
@@ -12,16 +15,26 @@ export function renderDocumentos(container) {
                 <div class="upload-form">
                     <div class="upload-field">
                         <label>Ficheiro PDF</label>
-                        <input type="file" class="upload-file-input" id="uploadFile" accept=".pdf">
+                        <div class="upload-file-wrapper">
+                            <label for="uploadFile" class="upload-file-button">Escolher ficheiro</label>
+                            <span class="upload-file-name" id="uploadFileName">Nenhum ficheiro selecionado</span>
+                            <input type="file" id="uploadFile" accept=".pdf" class="upload-file-hidden">
+                        </div>
                     </div>
                     <div class="upload-field">
                         <label>Tipo de documento</label>
-                        <select class="upload-select" id="uploadTipo">
-                            <option value="bula">Bula</option>
-                            <option value="monografia">Monografia</option>
-                            <option value="guideline">Guideline</option>
-                            <option value="norma">Norma</option>
-                        </select>
+                        <div class="custom-select" id="uploadTipo" data-value="bula">
+                            <button type="button" class="custom-select-button" aria-haspopup="listbox" aria-expanded="false">
+                                <span class="custom-select-label">Bula</span>
+                                ${CHEVRON_SVG}
+                            </button>
+                            <ul class="custom-select-menu" role="listbox" hidden>
+                                <li class="custom-select-option" data-value="bula" role="option">Bula</li>
+                                <li class="custom-select-option" data-value="monografia" role="option">Monografia</li>
+                                <li class="custom-select-option" data-value="guideline" role="option">Guideline</li>
+                                <li class="custom-select-option" data-value="norma" role="option">Norma</li>
+                            </ul>
+                        </div>
                     </div>
                     <button class="upload-btn" id="uploadBtn">Enviar e Indexar</button>
                 </div>
@@ -30,16 +43,31 @@ export function renderDocumentos(container) {
 
             <div class="stats-bar">
                 <div class="stat-card">
-                    <div class="stat-value" id="statDocs2">-</div>
-                    <div class="stat-label">Total Documentos</div>
+                    <div class="stat-card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+                    </div>
+                    <div class="stat-card-body">
+                        <div class="stat-value" id="statDocs2">-</div>
+                        <div class="stat-label">Total Documentos</div>
+                    </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value" id="statChunks2">-</div>
-                    <div class="stat-label">Total Chunks</div>
+                    <div class="stat-card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                    </div>
+                    <div class="stat-card-body">
+                        <div class="stat-value" id="statChunks2">-</div>
+                        <div class="stat-label">Total Chunks</div>
+                    </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value" id="statPaginas">-</div>
-                    <div class="stat-label">Total Paginas</div>
+                    <div class="stat-card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                    </div>
+                    <div class="stat-card-body">
+                        <div class="stat-value" id="statPaginas">-</div>
+                        <div class="stat-label">Total Paginas</div>
+                    </div>
                 </div>
             </div>
             <div class="docs-grid" id="docsGrid">
@@ -48,12 +76,18 @@ export function renderDocumentos(container) {
         </div>
     `;
     document.getElementById('uploadBtn').addEventListener('click', uploadDocument);
+    mountCustomSelect(document.getElementById('uploadTipo'));
+    // Mostrar nome do ficheiro escolhido ao lado do botao "Escolher ficheiro".
+    document.getElementById('uploadFile').addEventListener('change', (e) => {
+        const nome = e.target.files && e.target.files[0] ? e.target.files[0].name : 'Nenhum ficheiro selecionado';
+        document.getElementById('uploadFileName').textContent = nome;
+    });
     loadDocumentos();
 }
 
 async function uploadDocument() {
     const fileInput = document.getElementById('uploadFile');
-    const tipo = document.getElementById('uploadTipo').value;
+    const tipo = getCustomSelectValue(document.getElementById('uploadTipo'));
     const btn = document.getElementById('uploadBtn');
     const status = document.getElementById('uploadStatus');
 
@@ -88,10 +122,11 @@ async function uploadDocument() {
         status.innerHTML = `&#10003; Documento indexado: ${data.chunks_gerados} chunks gerados, ${data.pontos_indexados} indexados, ${data.total_na_collection} pontos totais.${aviso}`;
 
         fileInput.value = '';
+        document.getElementById('uploadFileName').textContent = 'Nenhum ficheiro selecionado';
         loadDocumentos();
     } catch (err) {
         status.className = 'upload-status active error';
-        status.innerHTML = `&#9888; ${err.message}`;
+        status.innerHTML = `&#9888; ${escapeHtml(humanizarErro(err.message, 'indexacao'))}`;
     } finally {
         btn.disabled = false;
         btn.textContent = 'Enviar e Indexar';
@@ -143,7 +178,19 @@ async function loadDocumentos() {
             grid.appendChild(card);
         });
     } catch (err) {
-        grid.innerHTML = `<div class="audit-empty">Erro ao carregar documentos: ${escapeHtml(err.message)}</div>`;
+        _markStatsAdminUnavailable();
+        grid.innerHTML = `<div class="audit-empty">${escapeHtml(humanizarErro(err.message))}</div>`;
+    }
+}
+
+// Espelha o markStatsUnavailable do chat.js, mas para os ids da vista admin.
+function _markStatsAdminUnavailable() {
+    for (const id of ['statDocs2', 'statChunks2', 'statPaginas']) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.textContent = '—';
+            el.classList.add('unavailable');
+        }
     }
 }
 
