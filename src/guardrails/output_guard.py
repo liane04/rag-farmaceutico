@@ -8,8 +8,8 @@ Verifica que a resposta gerada:
 
 import json
 
-from src.config import GENERATIVE_MODEL, FAITHFULNESS_THRESHOLD
-from src.llm_client import obter_cliente
+from src.config import FAITHFULNESS_THRESHOLD
+from src.llm_client import chamar_llm
 from src.query.retriever import ChunkRecuperado
 
 
@@ -85,13 +85,7 @@ def verificar_fidelidade(
 
     prompt = PROMPT_FIDELIDADE.format(contexto=contexto, resposta=resposta)
 
-    cliente = obter_cliente()
-    resp = cliente.messages.create(
-        model=GENERATIVE_MODEL,
-        max_tokens=512,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    texto = resp.content[0].text.strip()
+    texto = chamar_llm(prompt, max_tokens=512)
 
     try:
         if texto.startswith("```"):

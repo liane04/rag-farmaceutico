@@ -6,7 +6,11 @@ Lê variáveis de ambiente do ficheiro .env.
 import os
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
+# override=False (default): as variaveis reais do ambiente (ex.: QDRANT_HOST=qdrant
+# definido pelo docker-compose) tem precedencia sobre o .env. Com override=True, o
+# .env montado no container (QDRANT_HOST=localhost) sobrepunha-se e a API procurava
+# o Qdrant em localhost dentro do proprio container em vez do servico "qdrant".
+load_dotenv()
 
 # --- APIs ---
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -21,6 +25,16 @@ QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "farmacos")
 EMBEDDING_MODEL = "gemini-embedding-2-preview"
 GENERATIVE_MODEL = "claude-sonnet-4-6"
 EMBEDDING_DIMENSION = 3072
+
+# --- LLM local (Ollama) ---
+# Endereco do servidor Ollama e modelo a usar quando o modo "local" esta ativo.
+# Em producao podem apontar para um Ollama noutro host ou usar modelo maior.
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
+
+# Modo LLM por defeito quando a BD ainda nao tem definicao guardada.
+# "online" usa Claude (qualidade maxima); "local" usa Ollama (privacidade).
+LLM_MODE_DEFAULT = os.getenv("LLM_MODE_DEFAULT", "online")
 
 # --- Chunking ---
 # RecursiveCharacterTextSplitter conta caracteres.

@@ -10,8 +10,8 @@ Isto melhora a precisao do contexto enviado ao gerador (RF04).
 import json
 from dataclasses import replace
 
-from src.config import GENERATIVE_MODEL, RERANK_TOP_N
-from src.llm_client import obter_cliente
+from src.config import RERANK_TOP_N
+from src.llm_client import chamar_llm
 from src.query.retriever import ChunkRecuperado
 
 
@@ -79,15 +79,12 @@ def rerankar(
 
     prompt = PROMPT_RERANK.format(query=query, excertos=excertos_texto)
 
-    cliente = obter_cliente()
-    resposta = cliente.messages.create(
-        model=GENERATIVE_MODEL,
+    texto_resposta = chamar_llm(
+        prompt=prompt,
+        system=SYSTEM_PROMPT,
         max_tokens=1024,
         temperature=0,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt}],
     )
-    texto_resposta = resposta.content[0].text.strip()
 
     # Parsear resposta
     try:

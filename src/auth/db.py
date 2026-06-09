@@ -39,7 +39,7 @@ def _ligar() -> sqlite3.Connection:
 
 
 def inicializar_bd() -> None:
-    """Cria as tabelas (utilizadores e consultas) se ainda nao existirem."""
+    """Cria as tabelas (utilizadores, consultas, definicoes) se ainda nao existirem."""
     with closing(_ligar()) as ligacao:
         ligacao.execute(
             """
@@ -71,6 +71,44 @@ def inicializar_bd() -> None:
                 ip_cliente          TEXT
             )
             """
+        )
+        # Definicoes globais do sistema (key/value).
+        # Usado para LLM_MODE (online/local) e potenciais futuras definicoes.
+        ligacao.execute(
+            """
+            CREATE TABLE IF NOT EXISTS definicoes (
+                chave   TEXT PRIMARY KEY,
+                valor   TEXT NOT NULL,
+                alterado_em TEXT NOT NULL
+            )
+            """
+        )
+        ligacao.commit()
+
+
+# --- Definicoes globais (chave/valor) ---
+
+def obter_definicao(chave: str, default: str | None = None) -> str | None:
+    """Devolve o valor de uma definicao, ou `default` se nao existir."""
+    with closing(_ligar()) as ligacao:
+        linha = ligacao.execute(
+            "SELECT valor FROM definicoes WHERE chave = ?",
+            (chave,),
+        ).fetchone()
+    return linha["valor"] if linha is not None else default
+
+
+def definir_definicao(chave: str, valor: str) -> None:
+    """Cria ou atualiza uma definicao global."""
+    agora = datetime.now(timezone.utc).isoformat()
+    with closing(_ligar()) as ligacao:
+        ligacao.execute(
+            """
+            INSERT INTO definicoes (chave, valor, alterado_em)
+            VALUES (?, ?, ?)
+            ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor, alterado_em = excluded.alterado_em
+            """,
+            (chave, valor, agora),
         )
         ligacao.commit()
 

@@ -296,6 +296,107 @@ async function loadAudit() {
     }
 }
 
+// ============ Vista: Definicoes (admin) ============
+export function renderDefinicoes(container) {
+    container.innerHTML = `
+        <div class="container">
+            <div class="settings-card">
+                <div class="settings-title">Modo de geracao (LLM)</div>
+                <div class="settings-desc">
+                    Escolhe qual modelo o sistema usa para reranking, avaliacao
+                    de contexto, geracao de resposta e verificacao de fidelidade.
+                </div>
+
+                <div class="settings-row" id="llmModeRow">
+                    <div class="settings-current">
+                        <div class="settings-current-label">Modo activo</div>
+                        <div class="settings-current-value" id="llmModeAtual">A carregar...</div>
+                        <div class="settings-current-model" id="llmModeModelo">-</div>
+                    </div>
+                    <label class="toggle">
+                        <input type="checkbox" id="llmModeToggle" disabled>
+                        <span class="toggle-slider"></span>
+                        <span class="toggle-label-on">Local</span>
+                        <span class="toggle-label-off">Online</span>
+                    </label>
+                </div>
+
+                <div class="settings-info">
+                    <div class="settings-info-block">
+                        <div class="settings-info-title">Online (Claude)</div>
+                        <div class="settings-info-text">
+                            Qualidade maxima. Dados sao enviados para a Anthropic.
+                            Recomendado para casos sem restricoes de soberania de dados.
+                        </div>
+                    </div>
+                    <div class="settings-info-block">
+                        <div class="settings-info-title">Local (Ollama)</div>
+                        <div class="settings-info-text">
+                            Dados ficam na maquina servidor. Qualidade depende do modelo
+                            instalado. Recomendado para contextos com requisitos RGPD/clinicos.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-status" id="llmModeStatus"></div>
+            </div>
+        </div>
+    `;
+    loadLlmMode();
+    document.getElementById('llmModeToggle').addEventListener('change', toggleLlmMode);
+}
+
+async function loadLlmMode() {
+    const status = document.getElementById('llmModeStatus');
+    try {
+        const data = await apiGet('/admin/llm-mode');
+        _renderLlmMode(data);
+    } catch (err) {
+        status.className = 'settings-status active error';
+        status.textContent = formatarDetalheErro(err.message);
+    }
+}
+
+async function toggleLlmMode(e) {
+    const toggle = document.getElementById('llmModeToggle');
+    const status = document.getElementById('llmModeStatus');
+    const novoModo = e.target.checked ? 'local' : 'online';
+
+    toggle.disabled = true;
+    status.className = 'settings-status active loading';
+    status.innerHTML = '<div class="spinner-small"></div> A alterar...';
+
+    try {
+        const res = await apiFetch('/admin/llm-mode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ modo: novoModo }),
+        });
+        if (!res.ok) throw new Error((await res.json()).detail || 'Erro');
+        await loadLlmMode();
+        status.className = 'settings-status active success';
+        status.textContent = `Modo alterado para "${novoModo}". Afecta todas as consultas seguintes.`;
+    } catch (err) {
+        toggle.checked = !e.target.checked;
+        status.className = 'settings-status active error';
+        status.textContent = formatarDetalheErro(err.message);
+    } finally {
+        toggle.disabled = false;
+    }
+}
+
+function _renderLlmMode(data) {
+    const valor = document.getElementById('llmModeAtual');
+    const modelo = document.getElementById('llmModeModelo');
+    const toggle = document.getElementById('llmModeToggle');
+
+    valor.textContent = data.modo === 'local' ? 'Local (Ollama)' : 'Online (Claude)';
+    modelo.textContent = `Modelo: ${data.modo === 'local' ? data.modelo_local : data.modelo_online}`;
+    toggle.checked = data.modo === 'local';
+    toggle.disabled = false;
+}
+
+
 // ============ Helpers locais ============
 function formatarHora(iso) {
     try {

@@ -9,8 +9,8 @@ Implementa o mecanismo de auto-correcao do pipeline:
 
 import json
 
-from src.config import GENERATIVE_MODEL, RELEVANCE_THRESHOLD
-from src.llm_client import obter_cliente
+from src.config import RELEVANCE_THRESHOLD
+from src.llm_client import chamar_llm
 from src.query.prompt import PROMPT_CRAG_AVALIACAO, PROMPT_CRAG_REFORMULACAO
 from src.query.retriever import ChunkRecuperado
 
@@ -25,17 +25,6 @@ def _formatar_contexto(chunks: list[ChunkRecuperado]) -> str:
         fonte = f"{chunk.metadados.get('ficheiro', '?')} (p.{chunk.metadados.get('pagina', '?')})"
         partes.append(f"[{i}] Fonte: {fonte}\n{chunk.texto}")
     return "\n\n".join(partes)
-
-
-def _chamar_llm(prompt: str, max_tokens: int = 256) -> str:
-    """Chama o LLM e devolve o texto da resposta."""
-    cliente = obter_cliente()
-    resposta = cliente.messages.create(
-        model=GENERATIVE_MODEL,
-        max_tokens=max_tokens,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return resposta.content[0].text.strip()
 
 
 def avaliar_relevancia(
@@ -55,7 +44,7 @@ def avaliar_relevancia(
     prompt = PROMPT_CRAG_AVALIACAO.format(query=query, contexto=contexto)
 
     try:
-        texto = _chamar_llm(prompt, max_tokens=256)
+        texto = chamar_llm(prompt, max_tokens=256)
         if texto.startswith("```"):
             texto = texto.split("\n", 1)[1]
             texto = texto.rsplit("```", 1)[0]
@@ -75,7 +64,7 @@ def reformular_query(query: str) -> str:
     tecnicos farmaceuticos que possam melhorar o recall.
     """
     prompt = PROMPT_CRAG_REFORMULACAO.format(query=query)
-    nova_query = _chamar_llm(prompt, max_tokens=256)
+    nova_query = chamar_llm(prompt, max_tokens=256)
     print(f"[crag] Query reformulada: '{query}' -> '{nova_query}'")
     return nova_query
 

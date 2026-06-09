@@ -409,6 +409,43 @@ async def historico(utilizador: DadosToken = Depends(utilizador_atual), limite: 
     return {"registos": registos, "total": len(registos)}
 
 
+# --- LLM mode (admin) ---
+
+@app.get(
+    "/admin/llm-mode",
+    summary="Obter modo LLM activo",
+    description="Devolve o modo actual do sistema (online=Claude, local=Ollama) e o modelo configurado.",
+)
+async def get_llm_mode(_: DadosToken = Depends(requer_admin)):
+    from src.llm_client import obter_modo_llm
+    from src.config import GENERATIVE_MODEL, OLLAMA_MODEL
+
+    modo = obter_modo_llm()
+    return {
+        "modo": modo,
+        "modelo_online": GENERATIVE_MODEL,
+        "modelo_local": OLLAMA_MODEL,
+    }
+
+
+@app.post(
+    "/admin/llm-mode",
+    summary="Alterar modo LLM",
+    description="Alterna entre modo online (Claude) e local (Ollama). Afecta todas as consultas subsequentes.",
+)
+async def set_llm_mode(payload: dict, _: DadosToken = Depends(requer_admin)):
+    from src.llm_client import definir_modo_llm
+
+    modo = payload.get("modo")
+    if modo not in ("online", "local"):
+        raise HTTPException(
+            status_code=400,
+            detail="Campo 'modo' tem de ser 'online' ou 'local'.",
+        )
+    definir_modo_llm(modo)
+    return {"modo": modo, "ok": True}
+
+
 @app.post(
     "/upload",
     response_model=IngestaoResponse,

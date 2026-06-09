@@ -4,7 +4,7 @@
 import { getToken } from './api.js';
 import { login, logout, obterUtilizadorAtual } from './auth.js';
 import { renderChat } from './chat.js';
-import { renderDocumentos, renderAuditoria } from './admin.js';
+import { renderDocumentos, renderAuditoria, renderDefinicoes } from './admin.js';
 import { renderHistorico } from './historico.js';
 
 const loginView = document.getElementById('login-view');
@@ -90,6 +90,7 @@ function renderTabs() {
             { id: 'consulta', label: 'Consulta', render: renderChat },
             { id: 'documentos', label: 'Documentos', render: renderDocumentos },
             { id: 'auditoria', label: 'Auditoria', render: renderAuditoria },
+            { id: 'definicoes', label: 'Definicoes', render: renderDefinicoes },
         ]
         : [
             { id: 'consulta', label: 'Consulta', render: renderChat },

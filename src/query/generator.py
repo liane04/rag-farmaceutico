@@ -8,8 +8,7 @@ com citacoes explicitas da documentacao (RF08, RF13).
 from dataclasses import dataclass
 from typing import Iterator
 
-from src.config import GENERATIVE_MODEL
-from src.llm_client import obter_cliente
+from src.llm_client import chamar_llm, stream_llm
 from src.query.prompt import SYSTEM_PROMPT, PROMPT_GERACAO
 from src.query.retriever import ChunkRecuperado
 
@@ -83,15 +82,12 @@ def gerar_resposta(
     contexto = _formatar_contexto(chunks)
     prompt_user = PROMPT_GERACAO.format(contexto=contexto, query=query_usada)
 
-    cliente = obter_cliente()
-    resposta = cliente.messages.create(
-        model=GENERATIVE_MODEL,
+    texto_resposta = chamar_llm(
+        prompt=prompt_user,
+        system=SYSTEM_PROMPT,
         max_tokens=1500,
         temperature=0.2,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt_user}],
     )
-    texto_resposta = resposta.content[0].text.strip()
 
     # Adicionar aviso se contexto insuficiente (CRAG)
     if not contexto_suficiente:
@@ -142,17 +138,13 @@ def gerar_resposta_stream(
     contexto = _formatar_contexto(chunks)
     prompt_user = PROMPT_GERACAO.format(contexto=contexto, query=query_usada)
 
-    cliente = obter_cliente()
-    with cliente.messages.stream(
-        model=GENERATIVE_MODEL,
+    for texto in stream_llm(
+        prompt=prompt_user,
+        system=SYSTEM_PROMPT,
         max_tokens=1500,
         temperature=0.2,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt_user}],
-    ) as stream:
-        for texto in stream.text_stream:
-            if texto:
-                yield texto
+    ):
+        yield texto
 
     # Aviso de contexto insuficiente acrescentado no fim (mesmo formato que a
     # versao nao-streaming). Vai como ultimo pedaco apos o LLM ter terminado.
