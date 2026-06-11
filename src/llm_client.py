@@ -74,6 +74,13 @@ def _obter_cliente_ollama(temperature: float = 0.0):
             model=OLLAMA_MODEL,
             base_url=OLLAMA_HOST,
             temperature=temperature,
+            # Default do Ollama e 4096 — os prompts de CRAG/geracao/fidelidade
+            # (3 chunks x 4000 chars) ultrapassam isso e eram truncados em
+            # silencio. 8192 cabe nos modelos qwen2.5 (32K) e em RAM de portatil.
+            num_ctx=8192,
+            # Manter o modelo carregado entre chamadas/consultas (default: 5 min).
+            # Em CPU, recarregar o modelo custa ~30-60s na 1a chamada.
+            keep_alive="30m",
         )
     return _cliente_ollama
 
@@ -85,6 +92,7 @@ def chamar_llm(
     system: str = "",
     max_tokens: int = 1024,
     temperature: float = 0.0,
+    force_json: bool = False,
 ) -> str:
     """
     Chama o LLM activo (Anthropic ou Ollama) e devolve a resposta como texto.
@@ -94,6 +102,11 @@ def chamar_llm(
         system: Mensagem de sistema (opcional).
         max_tokens: Limite de tokens da resposta. (Ollama ignora — usa configuracao do modelo.)
         temperature: Temperatura de amostragem.
+        force_json: Se True e o modo for "local", obriga o Ollama a devolver JSON
+            valido (format="json"). Essencial para os callsites que fazem json.loads
+            (reranker, CRAG, fidelidade) — modelos locais pequenos doutra forma
+            devolvem texto livre e falham o parsing. No modo "online" e ignorado
+            (o Claude ja segue as instrucoes de JSON nos prompts).
 
     Returns:
         Texto da resposta (strip aplicado).
@@ -103,6 +116,10 @@ def chamar_llm(
     if modo == "local":
         from langchain_core.messages import HumanMessage, SystemMessage
         cliente = _obter_cliente_ollama(temperature=temperature)
+        if force_json:
+            # Saida JSON garantida (grammar-constrained do Ollama). Nao muta o
+            # cliente em cache; bind devolve um wrapper so para esta chamada.
+            cliente = cliente.bind(format="json")
         mensagens = []
         if system:
             mensagens.append(SystemMessage(content=system))

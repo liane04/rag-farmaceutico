@@ -45,7 +45,7 @@ async function carregarHistorico() {
         document.getElementById('historicoCount').textContent = `${data.total} registos`;
 
         if (data.total === 0) {
-            body.innerHTML = '<tr><td colspan="5" class="audit-empty">Ainda nao fez nenhuma consulta.</td></tr>';
+            body.innerHTML = '<tr><td colspan="5" class="audit-empty">Ainda não fez nenhuma consulta.</td></tr>';
             return;
         }
 

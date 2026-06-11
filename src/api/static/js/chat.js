@@ -2,7 +2,7 @@
 // dois papeis — farmaceutico e admin. O backend e stateless: o historico
 // da conversa vive no cliente e e enviado em cada pedido.
 
-import { apiFetch, ficheiroUrl, getToken, formatarDetalheErro, humanizarErro } from './api.js';
+import { apiFetch, ficheiroUrl, getToken, formatarDetalheErro, humanizarErro, rotuloTipo } from './api.js';
 import { mountCustomSelect, getCustomSelectValue } from './dropdown.js';
 
 const CHEVRON_SVG = `<svg class="custom-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
@@ -10,21 +10,28 @@ const CHEVRON_SVG = `<svg class="custom-select-chevron" viewBox="0 0 24 24" fill
 let mensagens = [];     // [{role: 'user'|'assistant', conteudo: '...'}]
 let sessionId = null;   // UUID gerado no cliente, agrupa registos no audit log
 
+// Snapshot do HTML do thread. O main.js destroi e reconstroi a vista a cada
+// troca de tab; sem isto, voltar a "Consulta" apagava a conversa do ecra.
+// Guardado no fim de cada troca completa; restaurado pelo renderChat.
+let threadSnapshot = null;
+
+function _guardarThread() {
+    const thread = document.getElementById('chatThread');
+    if (thread) threadSnapshot = thread.innerHTML;
+}
+
 // Sugestoes de consultas exibidas no empty state. Servem de guia ao
 // utilizador e de showcase em demonstracoes — sao queries representativas
 // do dominio coberto pelo corpus (bulas, monografias, guidelines, normas).
 const SUGESTOES_CONSULTA = [
-    'Quais sao os efeitos secundarios do ibuprofeno?',
+    'Quais são os efeitos secundários do ibuprofeno?',
     'Posologia recomendada do paracetamol em adultos',
-    'Quais as contraindicacoes da amoxicilina?',
-    'Interacoes medicamentosas relevantes do diclofenac',
+    'Quais as contraindicações da amoxicilina?',
+    'Interações medicamentosas relevantes do diclofenac',
 ];
 
 // Icones SVG inline (estilo Lucide). Inline para evitar request adicional
 // e manter o "stroke" sempre alinhado com a cor do tema (currentColor).
-const ICON_DOC = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>`;
-const ICON_LAYERS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`;
-const ICON_TAG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`;
 const ICON_CHAT = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
 function _emptyHtml() {
@@ -46,30 +53,6 @@ function _emptyHtml() {
 export function renderChat(container) {
     container.innerHTML = `
         <div class="container">
-            <div class="stats-bar">
-                <div class="stat-card">
-                    <div class="stat-card-icon">${ICON_DOC}</div>
-                    <div class="stat-card-body">
-                        <div class="stat-value" id="statDocs">-</div>
-                        <div class="stat-label">Documentos</div>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-card-icon">${ICON_LAYERS}</div>
-                    <div class="stat-card-body">
-                        <div class="stat-value" id="statChunks">-</div>
-                        <div class="stat-label">Chunks Indexados</div>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-card-icon">${ICON_TAG}</div>
-                    <div class="stat-card-body">
-                        <div class="stat-value" id="statTipos">-</div>
-                        <div class="stat-label">Tipos de Documento</div>
-                    </div>
-                </div>
-            </div>
-
             <div class="chat-card">
                 <div class="chat-header">
                     <span class="chat-header-title">Conversa</span>
@@ -95,7 +78,7 @@ export function renderChat(container) {
                             </button>
                             <ul class="custom-select-menu" role="listbox" hidden>
                                 <li class="custom-select-option" data-value="" role="option">Todos os documentos</li>
-                                <li class="custom-select-option" data-value="bula" role="option">Bulas</li>
+                                <li class="custom-select-option" data-value="bula" role="option">Bulas e RCM</li>
                                 <li class="custom-select-option" data-value="monografia" role="option">Monografias</li>
                                 <li class="custom-select-option" data-value="guideline" role="option">Guidelines</li>
                                 <li class="custom-select-option" data-value="norma" role="option">Normas</li>
@@ -104,7 +87,7 @@ export function renderChat(container) {
                     </div>
                     <div class="search-row">
                         <input type="text" class="search-input" id="queryInput"
-                            placeholder="Ex: Quais sao os efeitos secundarios do ibuprofeno?" autocomplete="off">
+                            placeholder="Ex: Quais são os efeitos secundários do ibuprofeno?" autocomplete="off">
                         <button class="search-btn" id="searchBtn">Enviar</button>
                     </div>
                 </div>
@@ -112,7 +95,16 @@ export function renderChat(container) {
         </div>
     `;
 
-    sessionId = gerarSessionId();
+    // Conversa em curso? Restaura o thread e mantem o sessionId (a conversa
+    // continua a mesma para o utilizador e para o audit log). Caso contrario,
+    // sessao nova com o empty state que o template ja traz.
+    if (threadSnapshot && mensagens.length > 0) {
+        const thread = document.getElementById('chatThread');
+        thread.innerHTML = threadSnapshot;
+        thread.scrollTop = thread.scrollHeight;
+    } else {
+        sessionId = gerarSessionId();
+    }
     document.getElementById('queryInput').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') submitQuery();
     });
@@ -120,38 +112,11 @@ export function renderChat(container) {
     document.getElementById('novaConversaBtn').addEventListener('click', novaConversa);
     mountCustomSelect(document.getElementById('tipoFilter'));
     _ligarSugestoes();
-    loadStats();
 }
 
 function gerarSessionId() {
     if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
     return 'sess-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
-}
-
-async function loadStats() {
-    try {
-        const res = await apiFetch('/documentos');
-        if (!res.ok) { _markStatsUnavailable(); return; }
-        const data = await res.json();
-        document.getElementById('statDocs').textContent = data.total_documentos;
-        document.getElementById('statChunks').textContent = data.total_chunks;
-        const tipos = new Set(data.documentos.map(d => d.tipo_documento));
-        document.getElementById('statTipos').textContent = tipos.size;
-    } catch {
-        _markStatsUnavailable();
-    }
-}
-
-// Estado visualmente coerente quando o Qdrant esta inacessivel: em vez de
-// um "-" anonimo, mostramos um em-dash cinzento em todos os cards.
-function _markStatsUnavailable() {
-    for (const id of ['statDocs', 'statChunks', 'statTipos']) {
-        const el = document.getElementById(id);
-        if (el) {
-            el.textContent = '—';
-            el.classList.add('unavailable');
-        }
-    }
 }
 
 async function submitQuery() {
@@ -238,6 +203,7 @@ async function submitQuery() {
         }
 
         mensagens.push({ role: 'assistant', conteudo: textoAcumulado });
+        _guardarThread();
     } catch (err) {
         removeBubble(thinkingId);
         if (bubbleStream && bubbleStream.wrap) bubbleStream.wrap.remove();
@@ -245,6 +211,7 @@ async function submitQuery() {
         showError(humanizarErro(err.message, 'consulta'));
         mensagens.pop();
         input.value = query;
+        _guardarThread();
     } finally {
         btn.disabled = false;
         btn.textContent = 'Enviar';
@@ -254,6 +221,7 @@ async function submitQuery() {
 
 function novaConversa() {
     mensagens = [];
+    threadSnapshot = null;
     sessionId = gerarSessionId();
     const thread = document.getElementById('chatThread');
     thread.innerHTML = _emptyHtml();
@@ -310,7 +278,7 @@ function appendThinkingBubble() {
     wrap.innerHTML = `
         <div class="chat-bubble chat-bubble-assistant chat-bubble-thinking">
             <div class="thinking-dots"><span></span><span></span><span></span></div>
-            <span class="thinking-label">A consultar a documentacao...</span>
+            <span class="thinking-label">A consultar a documentação...</span>
         </div>`;
     thread.appendChild(wrap);
     _scrollParaFundo();
@@ -385,14 +353,16 @@ function finalizarBubbleStreaming(refs, textoFinal) {
 }
 
 function construirTagFonte(f) {
+    // Numero do excerto — liga a tag as marcas [n] no corpo da resposta.
+    const num = f.numero ? `<span class="source-num">${f.numero}</span>` : '';
     const label = `${escapeHtml(f.ficheiro || '?')}${f.pagina ? ', p.' + f.pagina : ''}`;
-    const tipoBadge = `<span class="source-type">${f.tipo_documento || '?'}</span>`;
+    const tipoBadge = `<span class="source-type">${rotuloTipo(f.tipo_documento)}</span>`;
     if (!f.tipo_documento || !f.ficheiro) {
-        return `<span class="source-tag">${tipoBadge}${label}</span>`;
+        return `<span class="source-tag">${num}${tipoBadge}${label}</span>`;
     }
     const href = ficheiroUrl(f.tipo_documento, f.ficheiro, f.pagina);
     return `<a class="source-tag source-tag-link" href="${href}" target="_blank" rel="noopener"
-        title="Abrir ${escapeHtml(f.ficheiro)}${f.pagina ? ' na pagina ' + f.pagina : ''}">${tipoBadge}${label}</a>`;
+        title="Abrir ${escapeHtml(f.ficheiro)}${f.pagina ? ' na pagina ' + f.pagina : ''}">${num}${tipoBadge}${label}</a>`;
 }
 
 function formatResponse(text) {
@@ -414,6 +384,9 @@ function formatResponse(text) {
         .replace(/\n\n/g, '</p><p>')
         .replace(/\n/g, '<br>');
     html = '<p>' + html + '</p>';
+    // Marcas de citacao numerada ([1], [2]...) -> sobrescrito discreto que
+    // corresponde aos numeros das tags de fontes no fim da bubble.
+    html = html.replace(/\[(\d{1,2})\]/g, '<sup class="cite-num">[$1]</sup>');
     html = html.replace(/<p>\s*<\/p>/g, '')
         .replace(/<p>\s*(<h[123]>)/g, '$1')
         .replace(/(<\/h[123]>)\s*<\/p>/g, '$1')

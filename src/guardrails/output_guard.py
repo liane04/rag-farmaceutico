@@ -85,7 +85,7 @@ def verificar_fidelidade(
 
     prompt = PROMPT_FIDELIDADE.format(contexto=contexto, resposta=resposta)
 
-    texto = chamar_llm(prompt, max_tokens=512)
+    texto = chamar_llm(prompt, max_tokens=512, force_json=True)
 
     try:
         if texto.startswith("```"):
@@ -125,10 +125,10 @@ def validar_output(
     tem_disclaimer, msg = verificar_disclaimer(resposta)
     if not tem_disclaimer:
         print(f"[output_guard] {msg} A adicionar automaticamente.")
-        disclaimer = ("\n\n---\nAVISO: Esta informacao e gerada automaticamente a partir "
-                      "de documentacao farmaceutica oficial e destina-se apenas a apoio "
-                      "a decisao. Nao substitui o julgamento clinico do profissional "
-                      "de saude nem a consulta da documentacao original.")
+        disclaimer = ("\n\n---\nAVISO: Esta informação é gerada automaticamente a partir "
+                      "de documentação farmacêutica oficial e destina-se apenas a apoio "
+                      "à decisão. Não substitui o julgamento clínico do profissional "
+                      "de saúde nem a consulta da documentação original.")
         resposta_final += disclaimer
 
     # 2. Verificar fidelidade
@@ -141,9 +141,9 @@ def validar_output(
         problemas = fidelidade.get("problemas", [])
         if problemas:
             aviso_fidelidade = ("\n\nNOTA DE QUALIDADE: O sistema detetou que algumas "
-                                "afirmacoes nesta resposta podem nao estar totalmente "
-                                "suportadas pela documentacao de origem. Consulte as "
-                                "fontes originais para confirmacao.")
+                                "afirmações nesta resposta podem não estar totalmente "
+                                "suportadas pela documentação de origem. Consulte as "
+                                "fontes originais para confirmação.")
             resposta_final += aviso_fidelidade
 
     valido = score >= FAITHFULNESS_THRESHOLD and not avisos

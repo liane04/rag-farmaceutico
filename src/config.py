@@ -30,7 +30,7 @@ EMBEDDING_DIMENSION = 3072
 # Endereco do servidor Ollama e modelo a usar quando o modo "local" esta ativo.
 # Em producao podem apontar para um Ollama noutro host ou usar modelo maior.
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b-instruct")
 
 # Modo LLM por defeito quando a BD ainda nao tem definicao guardada.
 # "online" usa Claude (qualidade maxima); "local" usa Ollama (privacidade).

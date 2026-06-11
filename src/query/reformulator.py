@@ -16,8 +16,7 @@ referencias implicitas. O resto do pipeline (retriever, reranker, CRAG,
 generator) nao precisa de saber que existe historico.
 """
 
-from src.config import GENERATIVE_MODEL
-from src.llm_client import obter_cliente
+from src.llm_client import chamar_llm
 from src.query.prompt import PROMPT_REFORMULACAO_CONTEXTUAL
 
 
@@ -53,14 +52,7 @@ def reformular_com_historia(query: str, historia: list) -> str:
         query=query,
     )
 
-    cliente = obter_cliente()
-    resposta = cliente.messages.create(
-        model=GENERATIVE_MODEL,
-        max_tokens=300,
-        temperature=0,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    nova_query = resposta.content[0].text.strip()
+    nova_query = chamar_llm(prompt, max_tokens=300, temperature=0).strip()
 
     # Defesa: se o LLM falhar em devolver algo razoavel, mantem a query original
     if not nova_query or len(nova_query) > 2000:

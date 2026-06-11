@@ -1,7 +1,7 @@
 // Vistas exclusivas do admin: documentos (com upload) e auditoria.
 // Cada vista renderiza-se num container e tem o seu proprio loader.
 
-import { apiFetch, apiGet, apiPostForm, formatarDetalheErro, humanizarErro } from './api.js';
+import { apiFetch, apiGet, apiPostForm, formatarDetalheErro, humanizarErro, rotuloTipo } from './api.js';
 import { mountCustomSelect, getCustomSelectValue } from './dropdown.js';
 
 const CHEVRON_SVG = `<svg class="custom-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
@@ -25,11 +25,11 @@ export function renderDocumentos(container) {
                         <label>Tipo de documento</label>
                         <div class="custom-select" id="uploadTipo" data-value="bula">
                             <button type="button" class="custom-select-button" aria-haspopup="listbox" aria-expanded="false">
-                                <span class="custom-select-label">Bula</span>
+                                <span class="custom-select-label">Bula / RCM</span>
                                 ${CHEVRON_SVG}
                             </button>
                             <ul class="custom-select-menu" role="listbox" hidden>
-                                <li class="custom-select-option" data-value="bula" role="option">Bula</li>
+                                <li class="custom-select-option" data-value="bula" role="option">Bula / RCM</li>
                                 <li class="custom-select-option" data-value="monografia" role="option">Monografia</li>
                                 <li class="custom-select-option" data-value="guideline" role="option">Guideline</li>
                                 <li class="custom-select-option" data-value="norma" role="option">Norma</li>
@@ -70,6 +70,35 @@ export function renderDocumentos(container) {
                     </div>
                 </div>
             </div>
+            <div class="docs-toolbar">
+                <input type="text" class="docs-search" id="docsSearch"
+                       placeholder="Pesquisar por nome..." autocomplete="off">
+                <div class="custom-select" id="docsTipoFilter" data-value="">
+                    <button type="button" class="custom-select-button" aria-haspopup="listbox" aria-expanded="false">
+                        <span class="custom-select-label">Todos os tipos</span>
+                        ${CHEVRON_SVG}
+                    </button>
+                    <ul class="custom-select-menu" role="listbox" hidden>
+                        <li class="custom-select-option" data-value="" role="option">Todos os tipos</li>
+                        <li class="custom-select-option" data-value="bula" role="option">Bulas e RCM</li>
+                        <li class="custom-select-option" data-value="monografia" role="option">Monografias</li>
+                        <li class="custom-select-option" data-value="guideline" role="option">Guidelines</li>
+                        <li class="custom-select-option" data-value="norma" role="option">Normas</li>
+                    </ul>
+                </div>
+                <div class="custom-select" id="docsSort" data-value="nome">
+                    <button type="button" class="custom-select-button" aria-haspopup="listbox" aria-expanded="false">
+                        <span class="custom-select-label">Nome (A-Z)</span>
+                        ${CHEVRON_SVG}
+                    </button>
+                    <ul class="custom-select-menu" role="listbox" hidden>
+                        <li class="custom-select-option" data-value="nome" role="option">Nome (A-Z)</li>
+                        <li class="custom-select-option" data-value="tipo" role="option">Tipo</li>
+                        <li class="custom-select-option" data-value="chunks" role="option">Mais chunks</li>
+                    </ul>
+                </div>
+                <span class="docs-count" id="docsCount"></span>
+            </div>
             <div class="docs-grid" id="docsGrid">
                 <div class="audit-empty">A carregar documentos...</div>
             </div>
@@ -82,6 +111,12 @@ export function renderDocumentos(container) {
         const nome = e.target.files && e.target.files[0] ? e.target.files[0].name : 'Nenhum ficheiro selecionado';
         document.getElementById('uploadFileName').textContent = nome;
     });
+    // Toolbar de filtro/ordenacao da grelha — re-renderiza sobre a cache local.
+    mountCustomSelect(document.getElementById('docsTipoFilter'));
+    mountCustomSelect(document.getElementById('docsSort'));
+    document.getElementById('docsSearch').addEventListener('input', _renderDocsGrid);
+    document.getElementById('docsTipoFilter').addEventListener('change', _renderDocsGrid);
+    document.getElementById('docsSort').addEventListener('change', _renderDocsGrid);
     loadDocumentos();
 }
 
@@ -117,7 +152,7 @@ async function uploadDocument() {
         const data = await apiPostForm('/upload', formData);
 
         const perdidos = data.chunks_gerados - data.pontos_indexados;
-        const aviso = perdidos > 0 ? ` &#9888; ${perdidos} chunk(s) nao foram indexados.` : '';
+        const aviso = perdidos > 0 ? ` &#9888; ${perdidos} chunk(s) não foram indexados.` : '';
         status.className = 'upload-status active success';
         status.innerHTML = `&#10003; Documento indexado: ${data.chunks_gerados} chunks gerados, ${data.pontos_indexados} indexados, ${data.total_na_collection} pontos totais.${aviso}`;
 
@@ -133,6 +168,10 @@ async function uploadDocument() {
     }
 }
 
+// Cache da lista de documentos — a toolbar filtra/ordena sobre isto sem
+// voltar a pedir a API; o loadDocumentos atualiza-a (upload, delete, refresh).
+let _docsCache = [];
+
 async function loadDocumentos() {
     const grid = document.getElementById('docsGrid');
     try {
@@ -145,20 +184,57 @@ async function loadDocumentos() {
         data.documentos.forEach(d => totalPaginas += d.paginas.length);
         document.getElementById('statPaginas').textContent = totalPaginas;
 
-        if (data.documentos.length === 0) {
-            grid.innerHTML = '<div class="audit-empty">Nenhum documento indexado.</div>';
-            return;
-        }
+        _docsCache = data.documentos;
+        _renderDocsGrid();
+    } catch (err) {
+        _markStatsAdminUnavailable();
+        grid.innerHTML = `<div class="audit-empty">${escapeHtml(humanizarErro(err.message))}</div>`;
+    }
+}
 
-        grid.innerHTML = '';
-        data.documentos.forEach(doc => {
+function _renderDocsGrid() {
+    const grid = document.getElementById('docsGrid');
+    if (!grid) return;
+
+    const termo = (document.getElementById('docsSearch')?.value || '').trim().toLowerCase();
+    const tipo = getCustomSelectValue(document.getElementById('docsTipoFilter'));
+    const ordem = getCustomSelectValue(document.getElementById('docsSort')) || 'nome';
+
+    const docs = _docsCache.filter(d =>
+        (!tipo || d.tipo_documento === tipo) &&
+        (!termo || (d.ficheiro || '').toLowerCase().includes(termo))
+    );
+
+    const porNome = (a, b) => (a.ficheiro || '').localeCompare(b.ficheiro || '', 'pt', { sensitivity: 'base' });
+    if (ordem === 'chunks') docs.sort((a, b) => (b.total_chunks - a.total_chunks) || porNome(a, b));
+    else if (ordem === 'tipo') docs.sort((a, b) => (a.tipo_documento || '').localeCompare(b.tipo_documento || '') || porNome(a, b));
+    else docs.sort(porNome);
+
+    const count = document.getElementById('docsCount');
+    if (count) {
+        count.textContent = docs.length === _docsCache.length
+            ? `${_docsCache.length} documento${_docsCache.length === 1 ? '' : 's'}`
+            : `${docs.length} de ${_docsCache.length} documentos`;
+    }
+
+    if (_docsCache.length === 0) {
+        grid.innerHTML = '<div class="audit-empty">Nenhum documento indexado.</div>';
+        return;
+    }
+    if (docs.length === 0) {
+        grid.innerHTML = '<div class="audit-empty">Nenhum documento corresponde ao filtro.</div>';
+        return;
+    }
+
+    grid.innerHTML = '';
+    docs.forEach(doc => {
             const typeClass = 'doc-type-' + (doc.tipo_documento || 'desconhecido');
             const card = document.createElement('div');
             card.className = 'doc-card';
             card.innerHTML = `
                 <div class="doc-card-header">
                     <span class="doc-name">${escapeHtml(doc.ficheiro)}</span>
-                    <span class="doc-type-badge ${typeClass}">${escapeHtml(doc.tipo_documento)}</span>
+                    <span class="doc-type-badge ${typeClass}">${escapeHtml(rotuloTipo(doc.tipo_documento))}</span>
                 </div>
                 <div class="doc-card-body">
                     <div class="doc-stat-row">
@@ -174,12 +250,83 @@ async function loadDocumentos() {
                         <span class="doc-stat-value">${doc.paginas[0]} - ${doc.paginas[doc.paginas.length - 1]}</span>
                     </div>
                 </div>
+                <div class="doc-card-footer">
+                    <button class="doc-delete-btn" title="Remover do índice e apagar o PDF">Apagar</button>
+                </div>
             `;
+            card.querySelector('.doc-delete-btn').addEventListener('click', () =>
+                apagarDocumento(doc.tipo_documento, doc.ficheiro, card));
             grid.appendChild(card);
+    });
+}
+
+// Modal de confirmacao em-app (substitui o window.confirm nativo).
+// Devolve uma Promise<boolean>: true se o utilizador confirmar.
+function confirmarModal({ titulo, mensagem, textoConfirmar = 'Confirmar' }) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
+                <div class="modal-title" id="modalTitulo">${titulo}</div>
+                <div class="modal-text">${mensagem}</div>
+                <div class="modal-actions">
+                    <button type="button" class="modal-btn modal-btn-cancel">Cancelar</button>
+                    <button type="button" class="modal-btn modal-btn-danger">${textoConfirmar}</button>
+                </div>
+            </div>
+        `;
+        const fechar = (valor) => {
+            document.removeEventListener('keydown', onKey);
+            overlay.remove();
+            resolve(valor);
+        };
+        const onKey = (e) => { if (e.key === 'Escape') fechar(false); };
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) fechar(false); });
+        overlay.querySelector('.modal-btn-cancel').addEventListener('click', () => fechar(false));
+        overlay.querySelector('.modal-btn-danger').addEventListener('click', () => fechar(true));
+        document.addEventListener('keydown', onKey);
+        document.body.appendChild(overlay);
+        overlay.querySelector('.modal-btn-cancel').focus();
+    });
+}
+
+async function apagarDocumento(tipo, ficheiro, card) {
+    const confirmado = await confirmarModal({
+        titulo: `Apagar "${escapeHtml(ficheiro)}"?`,
+        mensagem: 'Isto remove o documento do índice de pesquisa e apaga o PDF.<br>' +
+                  'A ação é irreversível. O documento só volta com novo upload.',
+        textoConfirmar: 'Apagar',
+    });
+    if (!confirmado) return;
+
+    const btn = card.querySelector('.doc-delete-btn');
+    btn.disabled = true;
+    btn.textContent = 'A apagar...';
+    try {
+        const res = await apiFetch(`/documentos/${encodeURIComponent(tipo)}/${encodeURIComponent(ficheiro)}`, {
+            method: 'DELETE',
         });
+        if (!res.ok) {
+            const erro = await res.json().catch(() => ({}));
+            throw new Error(erro.detail || `Erro ${res.status}`);
+        }
+        const data = await res.json();
+        // Recarrega a grelha e as stats — o cartao desaparece.
+        await loadDocumentos();
+        const status = document.getElementById('uploadStatus');
+        if (status) {
+            status.className = 'upload-status active success';
+            status.textContent = `"${ficheiro}" apagado (${data.chunks_removidos} chunks removidos do índice).`;
+        }
     } catch (err) {
-        _markStatsAdminUnavailable();
-        grid.innerHTML = `<div class="audit-empty">${escapeHtml(humanizarErro(err.message))}</div>`;
+        btn.disabled = false;
+        btn.textContent = 'Apagar';
+        const status = document.getElementById('uploadStatus');
+        if (status) {
+            status.className = 'upload-status active error';
+            status.textContent = `Não foi possível apagar "${ficheiro}": ${err.message}`;
+        }
     }
 }
 
@@ -199,7 +346,7 @@ export function renderAuditoria(container) {
     container.innerHTML = `
         <div class="container">
             <div class="audit-controls">
-                <span class="audit-title">Historico de Consultas (todos os utilizadores)</span>
+                <span class="audit-title">Histórico de Consultas (todos os utilizadores)</span>
                 <div style="display:flex; gap:0.5rem; align-items:center;">
                     <span class="audit-count" id="auditCount">0 registos</span>
                     <button class="search-btn" id="auditRefreshBtn" style="padding:0.5rem 1rem; font-size:0.8rem;">Atualizar</button>
@@ -214,7 +361,7 @@ export function renderAuditoria(container) {
                             <th>Query</th>
                             <th>Fontes</th>
                             <th>Contexto</th>
-                            <th>Duracao</th>
+                            <th>Duração</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -254,7 +401,7 @@ async function loadAudit() {
             const duracao = reg.duracao_segundos ? reg.duracao_segundos.toFixed(1) + 's' : '-';
             const utilizador = reg.utilizador
                 ? `<span class="audit-user">${escapeHtml(reg.utilizador)}</span> <span class="audit-role">${escapeHtml(reg.papel || '')}</span>`
-                : '<span class="audit-user audit-user-anon">(anonimo)</span>';
+                : '<span class="audit-user audit-user-anon">(anónimo)</span>';
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -301,10 +448,10 @@ export function renderDefinicoes(container) {
     container.innerHTML = `
         <div class="container">
             <div class="settings-card">
-                <div class="settings-title">Modo de geracao (LLM)</div>
+                <div class="settings-title">Modo de geração (LLM)</div>
                 <div class="settings-desc">
-                    Escolhe qual modelo o sistema usa para reranking, avaliacao
-                    de contexto, geracao de resposta e verificacao de fidelidade.
+                    Escolhe qual modelo o sistema usa para reranking, avaliação
+                    de contexto, geração de resposta e verificação de fidelidade.
                 </div>
 
                 <div class="settings-row" id="llmModeRow">
@@ -325,15 +472,15 @@ export function renderDefinicoes(container) {
                     <div class="settings-info-block">
                         <div class="settings-info-title">Online (Claude)</div>
                         <div class="settings-info-text">
-                            Qualidade maxima. Dados sao enviados para a Anthropic.
-                            Recomendado para casos sem restricoes de soberania de dados.
+                            Qualidade máxima. Dados são enviados para a Anthropic.
+                            Recomendado para casos sem restrições de soberania de dados.
                         </div>
                     </div>
                     <div class="settings-info-block">
                         <div class="settings-info-title">Local (Ollama)</div>
                         <div class="settings-info-text">
-                            Dados ficam na maquina servidor. Qualidade depende do modelo
-                            instalado. Recomendado para contextos com requisitos RGPD/clinicos.
+                            Dados ficam na máquina servidor. Qualidade depende do modelo
+                            instalado. Recomendado para contextos com requisitos RGPD/clínicos.
                         </div>
                     </div>
                 </div>
@@ -375,7 +522,7 @@ async function toggleLlmMode(e) {
         if (!res.ok) throw new Error((await res.json()).detail || 'Erro');
         await loadLlmMode();
         status.className = 'settings-status active success';
-        status.textContent = `Modo alterado para "${novoModo}". Afecta todas as consultas seguintes.`;
+        status.textContent = `Modo alterado para "${novoModo}". Afeta todas as consultas seguintes.`;
     } catch (err) {
         toggle.checked = !e.target.checked;
         status.className = 'settings-status active error';

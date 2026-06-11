@@ -8,8 +8,7 @@ Valida que a query do utilizador:
 
 import re
 
-from src.config import GENERATIVE_MODEL
-from src.llm_client import obter_cliente
+from src.llm_client import chamar_llm
 
 
 # Padroes suspeitos de prompt injection
@@ -51,9 +50,9 @@ def _verificar_injection(query: str) -> tuple[bool, str]:
 def _verificar_comprimento(query: str) -> tuple[bool, str]:
     """Verifica se o comprimento da query e valido."""
     if len(query.strip()) < MIN_QUERY_LEN:
-        return False, "Query demasiado curta. Por favor, elabore a sua questao."
+        return False, "Query demasiado curta. Por favor, elabore a sua questão."
     if len(query.strip()) > MAX_QUERY_LEN:
-        return False, "Query demasiado longa. Por favor, simplifique a sua questao."
+        return False, "Query demasiado longa. Por favor, simplifique a sua questão."
     return True, ""
 
 
@@ -68,23 +67,25 @@ def _verificar_dominio(query: str) -> tuple[bool, str]:
 farmaceutico (medicamentos, farmacos, principios ativos, efeitos secundarios,
 posologia, interacoes medicamentosas, bulas, monografias, guidelines farmaceuticas).
 
+Atencao: perguntas sobre nomes comerciais ou marcas de medicamentos (ex.:
+"o que e o Brufen?", "para que serve o Ben-u-ron?") SAO do dominio
+farmaceutico, mesmo que nao conhecas o nome — num sistema farmaceutico,
+um nome desconhecido e provavelmente um medicamento. So deves responder
+NAO quando a pergunta e claramente de outro tema (geografia, desporto,
+historia, programacao, etc.).
+
+Em caso de duvida, responde SIM.
+
 Responde APENAS com "SIM" ou "NAO" seguido de uma breve justificacao.
 
 PERGUNTA: {query}"""
 
-    cliente = obter_cliente()
-    resposta = cliente.messages.create(
-        model=GENERATIVE_MODEL,
-        max_tokens=100,
-        temperature=0,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    texto = resposta.content[0].text.strip().upper().replace("*", "")
+    texto = chamar_llm(prompt, max_tokens=100, temperature=0).strip().upper().replace("*", "")
 
     if texto.startswith("SIM"):
         return True, ""
     else:
-        return False, "Esta questao parece estar fora do dominio farmaceutico."
+        return False, "Esta questão parece estar fora do domínio farmacêutico."
 
 
 def validar_input(query: str) -> tuple[bool, str]:
@@ -113,7 +114,7 @@ def validar_input(query: str) -> tuple[bool, str]:
     valido, msg = _verificar_injection(query)
     if not valido:
         print(f"[input_guard] Rejeitado (injection): {msg}")
-        return False, "Pedido invalido. Por favor, reformule a sua questao."
+        return False, "Pedido inválido. Por favor, reformule a sua questão."
 
     # 3. Dominio farmaceutico (LLM, mais lento)
     valido, msg = _verificar_dominio(query)

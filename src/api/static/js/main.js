@@ -22,7 +22,7 @@ let tabAtiva = null;
 // O api.js dispara este evento quando uma chamada devolve 401 — voltamos
 // ao ecra de login sem ter de inserir verificacoes em cada vista.
 window.addEventListener('auth:expired', () => {
-    voltarParaLogin('Sessao expirada. Faca login novamente.');
+    voltarParaLogin('Sessão expirada. Faça login novamente.');
 });
 
 logoutBtn.addEventListener('click', () => {
@@ -53,14 +53,14 @@ async function entrarNaApp() {
     try {
         utilizadorAtual = await obterUtilizadorAtual();
     } catch {
-        voltarParaLogin('Sessao invalida.');
+        voltarParaLogin('Sessão inválida.');
         return;
     }
     loginView.hidden = true;
     appView.hidden = false;
     document.getElementById('userName').textContent = utilizadorAtual.username;
     document.getElementById('userRole').textContent =
-        utilizadorAtual.papel === 'admin' ? 'Administrador' : 'Farmaceutico';
+        utilizadorAtual.papel === 'admin' ? 'Administrador' : 'Farmacêutico';
     document.getElementById('userRole').className =
         'user-role user-role-' + utilizadorAtual.papel;
     renderTabs();
@@ -90,11 +90,11 @@ function renderTabs() {
             { id: 'consulta', label: 'Consulta', render: renderChat },
             { id: 'documentos', label: 'Documentos', render: renderDocumentos },
             { id: 'auditoria', label: 'Auditoria', render: renderAuditoria },
-            { id: 'definicoes', label: 'Definicoes', render: renderDefinicoes },
+            { id: 'definicoes', label: 'Definições', render: renderDefinicoes },
         ]
         : [
             { id: 'consulta', label: 'Consulta', render: renderChat },
-            { id: 'historico', label: 'Historico', render: renderHistorico },
+            { id: 'historico', label: 'Histórico', render: renderHistorico },
         ];
 
     tabsBar.innerHTML = '';
@@ -126,7 +126,10 @@ async function checkHealth() {
         const text = document.getElementById('statusText');
         dot.classList.remove('offline', 'warning');
         if (data.status === 'ok') {
-            text.textContent = `Operacional (${data.total_pontos} pontos)`;
+            // Detalhe tecnico (nr de chunks no Qdrant) so no tooltip — o header
+            // mostra apenas o estado; os numeros vivem nos cartoes de stats.
+            text.textContent = 'Operacional';
+            text.title = `${data.total_pontos} chunks indexados`;
         } else if (data.status === 'vazio') {
             dot.classList.add('warning');
             text.textContent = 'Pronto — sem documentos';
@@ -137,7 +140,7 @@ async function checkHealth() {
     } catch {
         const dot = document.getElementById('statusDot');
         dot.classList.add('offline');
-        document.getElementById('statusText').textContent = 'Sem ligacao';
+        document.getElementById('statusText').textContent = 'Sem ligação';
     }
 }
 

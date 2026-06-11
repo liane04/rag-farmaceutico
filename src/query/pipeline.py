@@ -24,7 +24,7 @@ from src.guardrails.output_guard import validar_output
 from src.query.retriever import recuperar
 from src.query.reranker import rerankar
 from src.query.crag import crag_pipeline
-from src.query.generator import gerar_resposta, gerar_resposta_stream, RespostaRAG, _extrair_fontes
+from src.query.generator import gerar_resposta, gerar_resposta_stream, RespostaRAG
 from src.query.reformulator import reformular_com_historia
 
 
@@ -229,8 +229,18 @@ def consultar_stream(
             query_para_retrieval, chunks_rerankados, recuperar_fn=_recuperar_e_rerankar,
         )
 
-    # 5. META — emitir fontes ANTES da geracao para o cliente as mostrar logo
-    fontes = _extrair_fontes(chunks_finais)
+    # 5. META — emitir fontes ANTES da geracao para o cliente as mostrar logo.
+    # Numeradas pela ordem dos chunks (1:1 com os excertos [n] do prompt de
+    # geracao), SEM deduplicar — as marcas [n] da resposta apontam para estas.
+    fontes = [
+        {
+            "numero": i,
+            "ficheiro": c.metadados.get("ficheiro"),
+            "pagina": c.metadados.get("pagina"),
+            "tipo_documento": c.metadados.get("tipo_documento"),
+        }
+        for i, c in enumerate(chunks_finais, start=1)
+    ]
     yield {
         "tipo": "meta",
         "query_usada": query_usada,

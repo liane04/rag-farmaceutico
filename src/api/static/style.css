@@ -1921,3 +1921,160 @@
                 padding: 1.75rem 1.25rem;
             }
         }
+        /* ===== Apagar documento (admin) ===== */
+        .doc-card-footer {
+            padding: 0.6rem 1.25rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .doc-delete-btn {
+            background: transparent;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 0.35rem 0.9rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        .doc-delete-btn:hover:not(:disabled) {
+            background: #fef2f2;
+            border-color: #fca5a5;
+        }
+
+        .doc-delete-btn:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        /* ===== Modal de confirmacao em-app ===== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 1rem;
+        }
+
+        .modal-card {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            max-width: 440px;
+            width: 100%;
+            padding: 1.5rem 1.75rem;
+        }
+
+        .modal-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 0.6rem;
+        }
+
+        .modal-text {
+            font-size: 0.88rem;
+            color: var(--text-light);
+            line-height: 1.55;
+            margin-bottom: 1.25rem;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.6rem;
+        }
+
+        .modal-btn {
+            border-radius: 8px;
+            padding: 0.5rem 1.1rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        .modal-btn-cancel {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .modal-btn-cancel:hover {
+            background: #f1f5f9;
+        }
+
+        .modal-btn-danger {
+            background: #dc2626;
+            color: #fff;
+            border: 1px solid #dc2626;
+        }
+
+        .modal-btn-danger:hover {
+            background: #b91c1c;
+            border-color: #b91c1c;
+        }
+
+        /* ===== Citacoes numeradas ===== */
+        /* Numero do excerto na tag de fonte (mapa para as marcas [n] do texto) */
+        .source-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1.15rem;
+            height: 1.15rem;
+            padding: 0 0.25rem;
+            margin-right: 0.4rem;
+            background: var(--primary);
+            color: #fff;
+            border-radius: 6px;
+            font-size: 0.68rem;
+            font-weight: 700;
+        }
+
+        /* Marca [n] no corpo da resposta */
+        .cite-num {
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 0.72em;
+            margin-left: 0.1em;
+        }
+
+        /* ===== Toolbar de filtro/ordenacao dos documentos (admin) ===== */
+        .docs-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .docs-search {
+            flex: 1;
+            min-width: 220px;
+            padding: 0.55rem 0.9rem;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-family: inherit;
+            background: var(--bg-card);
+            color: var(--text);
+        }
+
+        .docs-search:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .docs-count {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            white-space: nowrap;
+        }

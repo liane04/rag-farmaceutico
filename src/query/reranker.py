@@ -11,7 +11,7 @@ import json
 from dataclasses import replace
 
 from src.config import RERANK_TOP_N
-from src.llm_client import chamar_llm
+from src.llm_client import chamar_llm, obter_modo_llm
 from src.query.retriever import ChunkRecuperado
 
 
@@ -22,29 +22,33 @@ SYSTEM_PROMPT = (
 )
 
 PROMPT_RERANK = """Dada a pergunta do utilizador e uma lista de excertos de documentos farmaceuticos,
-avalia a relevancia de cada excerto numa escala de 0 a 10:
+avalia a relevancia de CADA excerto numa escala de 0 a 10:
 - 0: completamente irrelevante
 - 5: parcialmente relevante
 - 10: diretamente responde a pergunta
 
-Responde APENAS com um JSON array de objetos, sem texto adicional:
-[{{"indice": 0, "score": 8, "razao": "breve justificacao"}}, ...]
+Avalia TODOS os excertos (uma entrada por excerto). Responde APENAS com um JSON
+com esta forma exacta, sem texto adicional:
+{{"avaliacoes": [{{"indice": 0, "score": 8, "razao": "breve justificacao"}}, {{"indice": 1, "score": 3, "razao": "..."}}]}}
 
 PERGUNTA: {query}
 
 EXCERTOS:
 {excertos}"""
 
-# Truncagem por excerto. Os chunks tem CHUNK_SIZE=4000 chars; permitimos
-# margem para edge cases do splitter sem inundar o prompt.
+# Truncagem por excerto para o prompt do reranker. Online (Claude) aguenta
+# margem ampla; em local os modelos pequenos descarrilam com prompts enormes
+# (7 chunks x 4000 chars), por isso truncamos muito mais — o inicio do chunk
+# chega para julgar relevancia.
 MAX_DOC_CHARS = 4000
+MAX_DOC_CHARS_LOCAL = 700
 
 
-def _truncar(texto: str) -> str:
+def _truncar(texto: str, limite: int = MAX_DOC_CHARS) -> str:
     """Trunca o excerto e sinaliza ao LLM que houve corte."""
-    if len(texto) <= MAX_DOC_CHARS:
+    if len(texto) <= limite:
         return texto
-    return texto[:MAX_DOC_CHARS] + " [...]"
+    return texto[:limite] + " [...]"
 
 
 def rerankar(
@@ -70,11 +74,15 @@ def rerankar(
     if len(chunks) <= top_n:
         return chunks
 
+    # Em modo local truncamos os excertos com mais agressividade (modelos
+    # pequenos descarrilam com prompts enormes).
+    limite_chars = MAX_DOC_CHARS_LOCAL if obter_modo_llm() == "local" else MAX_DOC_CHARS
+
     # Formatar excertos para o prompt
     partes = []
     for i, chunk in enumerate(chunks):
         fonte = f"{chunk.metadados.get('ficheiro', '?')} (p.{chunk.metadados.get('pagina', '?')})"
-        partes.append(f"\n[{i}] Fonte: {fonte}\n{_truncar(chunk.texto)}\n")
+        partes.append(f"\n[{i}] Fonte: {fonte}\n{_truncar(chunk.texto, limite_chars)}\n")
     excertos_texto = "".join(partes)
 
     prompt = PROMPT_RERANK.format(query=query, excertos=excertos_texto)
@@ -84,6 +92,7 @@ def rerankar(
         system=SYSTEM_PROMPT,
         max_tokens=1024,
         temperature=0,
+        force_json=True,
     )
 
     # Parsear resposta
@@ -92,9 +101,25 @@ def rerankar(
             texto_resposta = texto_resposta.split("\n", 1)[1]
             texto_resposta = texto_resposta.rsplit("```", 1)[0]
         avaliacoes = json.loads(texto_resposta)
-    except (json.JSONDecodeError, IndexError, KeyError):
+        # Em format=json o Ollama tende a devolver um objeto no topo em vez do
+        # array pedido (ex.: {"avaliacoes": [...]} ou {"0": {...}}). Normalizar
+        # para a lista de objetos de score.
+        if isinstance(avaliacoes, dict):
+            listas = [v for v in avaliacoes.values() if isinstance(v, list)]
+            if listas:
+                avaliacoes = listas[0]
+            elif "score" in avaliacoes or "indice" in avaliacoes:
+                # Objeto unico de score (o modelo so avaliou um excerto).
+                avaliacoes = [avaliacoes]
+            else:
+                avaliacoes = list(avaliacoes.values())
+        avaliacoes = [a for a in avaliacoes if isinstance(a, dict)]
+        if not avaliacoes:
+            raise ValueError("Sem avaliacoes utilizaveis.")
+    except (json.JSONDecodeError, IndexError, KeyError, ValueError, TypeError, AttributeError) as e:
         # Fallback: manter a ordem original do retriever
-        print("[reranker] AVISO: Falha ao parsear resposta do LLM. A usar ordem original.")
+        print(f"[reranker] AVISO: Falha ao parsear resposta do LLM ({type(e).__name__}): "
+              f"{texto_resposta[:150]!r}. A usar ordem original.")
         return chunks[:top_n]
 
     # Ordenar por score e selecionar top_n

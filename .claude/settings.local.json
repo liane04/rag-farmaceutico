@@ -1,4 +1,5 @@
 {
+  "includeCoAuthoredBy": false,
   "permissions": {
     "allow": [
       "Bash(python -m pytest tests/ -v --tb=short)",
@@ -8,7 +9,13 @@
       "Bash(python -m pytest tests/test_pipeline.py tests/test_input_guard.py tests/test_output_guard.py -v --tb=short)",
       "Bash(python -m pytest tests/test_pipeline.py -v --tb=short)",
       "Bash(python -c ' *)",
-      "Bash(python -m pytest tests/test_chunker.py tests/test_loader.py -v --tb=short)"
+      "Bash(python -m pytest tests/test_chunker.py tests/test_loader.py -v --tb=short)",
+      "Bash(git rev-list *)",
+      "Bash(python _tmp_test_llm_mode.py)",
+      "Bash(echo \"---EXIT $?---\")",
+      "Bash(python _tmp_test_stream.py)",
+      "Bash(OLLAMA_HOST=http://localhost:11434 python _tmp_test_local.py)",
+      "Bash(python _tmp_test_online.py)"
     ]
   }
 }

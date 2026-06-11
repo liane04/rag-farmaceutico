@@ -385,6 +385,79 @@ async def documentos(_: DadosToken = Depends(utilizador_atual)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.delete(
+    "/documentos/{tipo}/{nome}",
+    summary="Apagar um documento indexado",
+    description="Remove os chunks do documento do indice Qdrant e apaga o PDF original. "
+                "Operacao irreversivel — o documento so volta com novo upload/ingestao.",
+)
+async def apagar_documento(
+    tipo: str,
+    nome: str,
+    utilizador: DadosToken = Depends(requer_admin),
+):
+    from src.ingestion.indexer import criar_cliente
+    from qdrant_client.models import FieldCondition, Filter, FilterSelector, MatchValue
+
+    tipos_validos = {"bula": "bulas", "monografia": "monografias", "guideline": "guidelines", "norma": "normas"}
+    if tipo not in tipos_validos:
+        raise HTTPException(status_code=404, detail=f"Tipo invalido: {tipo}")
+
+    # Mesmas defesas contra directory traversal do GET /ficheiros.
+    if "/" in nome or "\\" in nome or ".." in nome or Path(nome).name != nome:
+        raise HTTPException(status_code=400, detail="Nome de ficheiro invalido.")
+    if not nome.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Apenas ficheiros PDF podem ser apagados.")
+
+    pasta_base = Path(__file__).parent.parent.parent / "data" / "documents"
+    caminho = pasta_base / tipos_validos[tipo] / nome
+    try:
+        caminho_resolvido = caminho.resolve()
+        pasta_resolvida = (pasta_base / tipos_validos[tipo]).resolve()
+        caminho_resolvido.relative_to(pasta_resolvida)
+    except (ValueError, OSError):
+        raise HTTPException(status_code=400, detail="Caminho invalido.")
+
+    filtro = Filter(must=[
+        FieldCondition(key="ficheiro", match=MatchValue(value=nome)),
+        FieldCondition(key="tipo_documento", match=MatchValue(value=tipo)),
+    ])
+
+    try:
+        cliente = criar_cliente()
+        chunks_a_remover = cliente.count(
+            collection_name=QDRANT_COLLECTION, count_filter=filtro, exact=True,
+        ).count
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao consultar o indice: {e}")
+
+    pdf_existe = caminho_resolvido.is_file()
+    if chunks_a_remover == 0 and not pdf_existe:
+        raise HTTPException(status_code=404, detail=f"Documento nao encontrado: {tipo}/{nome}")
+
+    try:
+        if chunks_a_remover > 0:
+            cliente.delete(
+                collection_name=QDRANT_COLLECTION,
+                points_selector=FilterSelector(filter=filtro),
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao remover chunks do indice: {e}")
+
+    if pdf_existe:
+        caminho_resolvido.unlink(missing_ok=True)
+
+    print(f"[admin] '{utilizador.username}' apagou {tipo}/{nome} "
+          f"({chunks_a_remover} chunks, pdf={'sim' if pdf_existe else 'nao'})")
+
+    return {
+        "ficheiro": nome,
+        "tipo_documento": tipo,
+        "chunks_removidos": chunks_a_remover,
+        "pdf_removido": pdf_existe,
+    }
+
+
 @app.get(
     "/audit",
     summary="Consultar registos de auditoria",
@@ -550,7 +623,15 @@ async def ficheiro(
     if not caminho_resolvido.is_file():
         raise HTTPException(status_code=404, detail=f"Ficheiro nao encontrado: {nome}")
 
-    return FileResponse(caminho_resolvido, media_type="application/pdf", filename=nome)
+    # content_disposition_type="inline" abre o PDF no viewer do browser (em vez
+    # de forcar download); o utilizador descarrega a partir do viewer se quiser.
+    # O sufixo #page=N dos links das fontes so funciona com o viewer aberto.
+    return FileResponse(
+        caminho_resolvido,
+        media_type="application/pdf",
+        filename=nome,
+        content_disposition_type="inline",
+    )
 
 
 # --- Interface web ---

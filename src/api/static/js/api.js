@@ -30,7 +30,7 @@ export async function apiFetch(path, options = {}) {
     const res = await fetch(path, { ...options, headers });
     if (res.status === 401) {
         notificarExpirado();
-        throw new Error('Sessao expirada — faca login novamente.');
+        throw new Error('Sessão expirada — faça login novamente.');
     }
     return res;
 }
@@ -122,4 +122,18 @@ export function humanizarErro(msg, contexto) {
         return 'Ocorreu um erro inesperado. Tente novamente em instantes.';
     }
     return original || 'Ocorreu um erro inesperado.';
+}
+
+// Mapa valor-interno -> rotulo de apresentacao dos tipos de documento.
+// O metadata dos chunks guarda valores tecnicos (bula, monografia, ...);
+// a UI mostra rotulos amigaveis. A categoria "bula" abrange FI e RCM (Infomed).
+const ROTULOS_TIPO = {
+    bula: 'Bula / RCM',
+    monografia: 'Monografia',
+    guideline: 'Guideline',
+    norma: 'Norma',
+};
+
+export function rotuloTipo(tipo) {
+    return ROTULOS_TIPO[tipo] || tipo || '?';
 }

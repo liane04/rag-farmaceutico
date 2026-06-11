@@ -21,6 +21,10 @@ services:
     environment:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
+      # Ollama corre fora do Docker (no host); host.docker.internal e como os
+      # containers do Docker Desktop alcancam servicos do host. Tem precedencia
+      # sobre o OLLAMA_HOST=localhost do .env (load_dotenv sem override).
+      - OLLAMA_HOST=http://host.docker.internal:11434
     volumes:
       - ./data:/app/data
       - ./.env:/app/.env:ro

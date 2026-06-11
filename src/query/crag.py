@@ -10,20 +10,30 @@ Implementa o mecanismo de auto-correcao do pipeline:
 import json
 
 from src.config import RELEVANCE_THRESHOLD
-from src.llm_client import chamar_llm
+from src.llm_client import chamar_llm, obter_modo_llm
 from src.query.prompt import PROMPT_CRAG_AVALIACAO, PROMPT_CRAG_REFORMULACAO
 from src.query.retriever import ChunkRecuperado
 
 
 MAX_TENTATIVAS = 2  # query original + 1 reformulacao
 
+# Em modo local, truncar os chunks na avaliacao de relevancia: julgar se o
+# contexto e relevante nao exige o texto completo, e prompts longos sao o
+# principal custo de tempo (prefill) em CPU. A geracao e a fidelidade
+# continuam a ver os chunks completos.
+MAX_CHUNK_CHARS_LOCAL = 1200
+
 
 def _formatar_contexto(chunks: list[ChunkRecuperado]) -> str:
     """Formata chunks como texto para incluir no prompt."""
+    limite = MAX_CHUNK_CHARS_LOCAL if obter_modo_llm() == "local" else None
     partes = []
     for i, chunk in enumerate(chunks, start=1):
         fonte = f"{chunk.metadados.get('ficheiro', '?')} (p.{chunk.metadados.get('pagina', '?')})"
-        partes.append(f"[{i}] Fonte: {fonte}\n{chunk.texto}")
+        texto = chunk.texto
+        if limite is not None and len(texto) > limite:
+            texto = texto[:limite] + " [...]"
+        partes.append(f"[{i}] Fonte: {fonte}\n{texto}")
     return "\n\n".join(partes)
 
 
@@ -44,7 +54,7 @@ def avaliar_relevancia(
     prompt = PROMPT_CRAG_AVALIACAO.format(query=query, contexto=contexto)
 
     try:
-        texto = chamar_llm(prompt, max_tokens=256)
+        texto = chamar_llm(prompt, max_tokens=256, force_json=True)
         if texto.startswith("```"):
             texto = texto.split("\n", 1)[1]
             texto = texto.rsplit("```", 1)[0]

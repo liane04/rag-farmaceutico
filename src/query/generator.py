@@ -71,8 +71,8 @@ def gerar_resposta(
     # Se nao ha chunks, resposta padrao
     if not chunks:
         return RespostaRAG(
-            resposta="A documentacao disponivel nao contem informacao suficiente "
-                     "para responder a esta questao.",
+            resposta="A documentação disponível não contém informação suficiente "
+                     "para responder a esta questão.",
             query_usada=query_usada,
             contexto_suficiente=False,
             chunks_usados=[],
@@ -91,9 +91,9 @@ def gerar_resposta(
 
     # Adicionar aviso se contexto insuficiente (CRAG)
     if not contexto_suficiente:
-        aviso = ("\n\nNOTA: O sistema identificou que a documentacao disponivel "
-                 "pode nao conter toda a informacao necessaria para uma resposta completa. "
-                 "Consulte a documentacao original para confirmacao.")
+        aviso = ("\n\nNOTA: O sistema identificou que a documentação disponível "
+                 "pode não conter toda a informação necessária para uma resposta completa. "
+                 "Consulte a documentação original para confirmação.")
         texto_resposta += aviso
 
     return RespostaRAG(
@@ -131,8 +131,8 @@ def gerar_resposta_stream(
     query_usada = query_usada or query
 
     if not chunks:
-        yield ("A documentacao disponivel nao contem informacao suficiente "
-               "para responder a esta questao.")
+        yield ("A documentação disponível não contém informação suficiente "
+               "para responder a esta questão.")
         return
 
     contexto = _formatar_contexto(chunks)
@@ -149,6 +149,6 @@ def gerar_resposta_stream(
     # Aviso de contexto insuficiente acrescentado no fim (mesmo formato que a
     # versao nao-streaming). Vai como ultimo pedaco apos o LLM ter terminado.
     if not contexto_suficiente:
-        yield ("\n\nNOTA: O sistema identificou que a documentacao disponivel "
-               "pode nao conter toda a informacao necessaria para uma resposta completa. "
-               "Consulte a documentacao original para confirmacao.")
+        yield ("\n\nNOTA: O sistema identificou que a documentação disponível "
+               "pode não conter toda a informação necessária para uma resposta completa. "
+               "Consulte a documentação original para confirmação.")
