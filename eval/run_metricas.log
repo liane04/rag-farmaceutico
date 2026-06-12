@@ -1,0 +1,44 @@
+C:\Users\UM3402\repos\rag-farmaceutico\eval\avaliar_ragas.py:33: DeprecationWarning: `langchain-community` is being sunset and is no longer actively maintained. See https://github.com/langchain-ai/langchain-community/issues/674 for details and migration guidance toward standalone integration packages.
+  from langchain_community.chat_models.vertexai import ChatVertexAI  # noqa: F401
+A reutilizar 12 respostas do cache.
+
+A calcular metricas RAGAS (LLM-juiz)...
+C:\Users\UM3402\AppData\Local\Programs\Python\Python312\Lib\site-packages\instructor\providers\gemini\client.py:5: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai  # type: ignore[import-not-found]
+C:\Users\UM3402\repos\rag-farmaceutico\eval\avaliar_ragas.py:122: DeprecationWarning: Importing AnswerRelevancy from 'ragas.metrics' is deprecated and will be removed in v1.0. Please use 'ragas.metrics.collections' instead. Example: from ragas.metrics.collections import AnswerRelevancy
+  from ragas.metrics import (
+C:\Users\UM3402\repos\rag-farmaceutico\eval\avaliar_ragas.py:122: DeprecationWarning: Importing Faithfulness from 'ragas.metrics' is deprecated and will be removed in v1.0. Please use 'ragas.metrics.collections' instead. Example: from ragas.metrics.collections import Faithfulness
+  from ragas.metrics import (
+C:\Users\UM3402\repos\rag-farmaceutico\eval\avaliar_ragas.py:122: DeprecationWarning: Importing LLMContextPrecisionWithReference from 'ragas.metrics' is deprecated and will be removed in v1.0. Please use 'ragas.metrics.collections' instead. Example: from ragas.metrics.collections import LLMContextPrecisionWithReference
+  from ragas.metrics import (
+C:\Users\UM3402\repos\rag-farmaceutico\eval\avaliar_ragas.py:122: DeprecationWarning: Importing LLMContextRecall from 'ragas.metrics' is deprecated and will be removed in v1.0. Please use 'ragas.metrics.collections' instead. Example: from ragas.metrics.collections import LLMContextRecall
+  from ragas.metrics import (
+C:\Users\UM3402\repos\rag-farmaceutico\eval\avaliar_ragas.py:132: DeprecationWarning: LangchainLLMWrapper is deprecated and will be removed in a future version. Use llm_factory instead: from openai import OpenAI; from ragas.llms import llm_factory; llm = llm_factory('gpt-4o-mini', client=OpenAI(api_key='...'))
+  juiz = LangchainLLMWrapper(ChatAnthropic(
+C:\Users\UM3402\repos\rag-farmaceutico\eval\avaliar_ragas.py:156: DeprecationWarning: LangchainEmbeddingsWrapper is deprecated and will be removed in a future version. Use the modern embedding providers instead: embedding_factory('openai', model='text-embedding-3-small', client=openai_client) or from ragas.embeddings import OpenAIEmbeddings, GoogleEmbeddings, HuggingFaceEmbeddings
+  embeddings = LangchainEmbeddingsWrapper(_EmbeddingsPorTexto(criar_embedder()))
+[metricas 1/12] q01_brufen_gi: {'faithfulness': 1.0, 'answer_relevancy': 0.913, 'llm_context_precision_with_reference': 1.0, 'context_recall': 0.333}
+[metricas 2/12] q02_brufen_gravidez: {'faithfulness': 0.812, 'answer_relevancy': 0.881, 'llm_context_precision_with_reference': 1.0, 'context_recall': 1.0}
+[metricas 3/12] q03_clamoxyl_indicacao: {'faithfulness': 0.952, 'answer_relevancy': 0.923, 'llm_context_precision_with_reference': 1.0, 'context_recall': 1.0}
+[metricas 4/12] q04_varfine_interacoes: {'faithfulness': 0.933, 'answer_relevancy': 0.993, 'llm_context_precision_with_reference': 1.0, 'context_recall': 1.0}
+[metricas 5/12] q05_omeprazol_indicacao: {'faithfulness': 0.714, 'answer_relevancy': 0.925, 'llm_context_precision_with_reference': 1.0, 'context_recall': 1.0}
+[metricas 6/12] q06_ventilan_indicacao: {'faithfulness': 0.786, 'answer_relevancy': 0.849, 'llm_context_precision_with_reference': 1.0, 'context_recall': 1.0}
+[metricas 7/12] q07_guideline_pac: {'faithfulness': 1.0, 'answer_relevancy': 0.951, 'llm_context_precision_with_reference': 1.0, 'context_recall': 0.5}
+[metricas 8/12] q08_interacao_cruzada: {'faithfulness': 0.417, 'answer_relevancy': 0.943, 'llm_context_precision_with_reference': 1.0, 'context_recall': 1.0}
+[metricas 9/12] q09_benuron_indicacao: {'faithfulness': 1.0, 'answer_relevancy': 0.892, 'llm_context_precision_with_reference': 1.0, 'context_recall': 1.0}
+[metricas 10/12] q10_varfine_alimentos: {'faithfulness': 1.0, 'answer_relevancy': 0.853, 'llm_context_precision_with_reference': 1.0, 'context_recall': 1.0}
+[metricas 11/12] q11_paracetamol_prolongado: {'faithfulness': 1.0, 'answer_relevancy': 0.75, 'llm_context_precision_with_reference': 1.0, 'context_recall': 1.0}
+[metricas 12/12] q12_controlo_fora_corpus: {'faithfulness': 0.462, 'answer_relevancy': 0.0, 'llm_context_precision_with_reference': 0.0, 'context_recall': 1.0}
+
+Resultados escritos em:
+  C:\Users\UM3402\repos\rag-farmaceutico\eval\resultados_ragas.json
+  C:\Users\UM3402\repos\rag-farmaceutico\eval\resultados_ragas.md
+
+Medias (nucleo): {"faithfulness": 0.874, "answer_relevancy": 0.898, "llm_context_precision_with_reference": 1.0, "context_recall": 0.894}

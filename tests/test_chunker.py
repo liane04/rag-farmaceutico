@@ -10,7 +10,8 @@ from src.config import CHUNK_SIZE, CHUNK_OVERLAP
 from pathlib import Path
 
 
-PDF_BULA = Path(__file__).parent.parent / "data" / "documents" / "bulas" / "brufen_folheto.pdf"
+# Fixture propria (nao o corpus real, que e gerido pelo admin na UI).
+PDF_BULA = Path(__file__).parent / "fixtures" / "documents" / "bulas" / "bula_exemplo.pdf"
 
 
 @pytest.fixture
@@ -47,7 +48,7 @@ class TestChunkarDocumento:
     def test_ficheiro_preservado(self, documento):
         chunks = chunkar_documento(documento)
         for chunk in chunks:
-            assert chunk.metadados["ficheiro"] == "brufen_folheto.pdf"
+            assert chunk.metadados["ficheiro"] == "bula_exemplo.pdf"
 
     def test_chunk_index_sequencial(self, documento):
         chunks = chunkar_documento(documento)
@@ -90,5 +91,5 @@ class TestChunkarDocumentos:
         )
         chunks = chunkar_documentos([doc1, doc2])
         ficheiros = set(c.metadados["ficheiro"] for c in chunks)
-        assert "brufen_folheto.pdf" in ficheiros
+        assert "bula_exemplo.pdf" in ficheiros
         assert "monografia_sintetica.pdf" in ficheiros

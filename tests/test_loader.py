@@ -8,10 +8,12 @@ from pathlib import Path
 from src.ingestion.loader import carregar_pdf, carregar_pasta, DocumentoExtraido
 
 
-# Caminho para os PDFs de teste
-PASTA_DOCUMENTOS = Path(__file__).parent.parent / "data" / "documents"
-PDF_BULA = PASTA_DOCUMENTOS / "bulas" / "brufen_folheto.pdf"
-PDF_MONOGRAFIA = PASTA_DOCUMENTOS / "monografias" / "brufen.pdf"
+# PDFs de teste: fixture propria em tests/fixtures, NAO o corpus real de
+# data/documents — esse e gerido pelo admin na UI (upload/apagar) e os testes
+# nao podem depender de ficheiros que mudam. (Licao: os testes apontavam ao
+# brufen_folheto.pdf, que foi substituido durante a expansao do corpus.)
+PASTA_DOCUMENTOS = Path(__file__).parent / "fixtures" / "documents"
+PDF_BULA = PASTA_DOCUMENTOS / "bulas" / "bula_exemplo.pdf"
 
 
 class TestCarregarPdf:
@@ -20,7 +22,7 @@ class TestCarregarPdf:
     def test_carrega_pdf_existente(self):
         doc = carregar_pdf(PDF_BULA, tipo_documento="bula")
         assert isinstance(doc, DocumentoExtraido)
-        assert doc.ficheiro == "brufen_folheto.pdf"
+        assert doc.ficheiro == "bula_exemplo.pdf"
         assert doc.tipo_documento == "bula"
         assert doc.total_paginas > 0
 
@@ -66,7 +68,7 @@ class TestCarregarPasta:
         docs = carregar_pasta(PASTA_DOCUMENTOS)
         bulas = [d for d in docs if d.tipo_documento == "bula"]
         assert len(bulas) >= 1
-        assert any(d.ficheiro == "brufen_folheto.pdf" for d in bulas)
+        assert any(d.ficheiro == "bula_exemplo.pdf" for d in bulas)
 
     def test_infere_tipo_pela_pasta(self, tmp_path):
         """Testa que PDFs na pasta monografias/ são classificados como monografia."""
@@ -79,9 +81,9 @@ class TestCarregarPasta:
         assert len(monografias) >= 1
 
     def test_mapeamento_explicito_tem_prioridade(self):
-        mapeamento = {"brufen_folheto.pdf": "guideline"}
+        mapeamento = {"bula_exemplo.pdf": "guideline"}
         docs = carregar_pasta(PASTA_DOCUMENTOS, mapeamento_tipos=mapeamento)
-        bula = next(d for d in docs if d.ficheiro == "brufen_folheto.pdf")
+        bula = next(d for d in docs if d.ficheiro == "bula_exemplo.pdf")
         assert bula.tipo_documento == "guideline"
 
     def test_pasta_inexistente_levanta_erro(self):

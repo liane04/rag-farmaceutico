@@ -1,0 +1,113 @@
+{
+  "descricao": "Dataset de avaliacao RAGAS do sistema RAG farmaceutico. As referencias foram redigidas a partir do texto real dos documentos do corpus (verificadas por pesquisa de termos-chave). A pergunta de controlo (fora do corpus) avalia a recusa honesta e e excluida das medias.",
+  "perguntas": [
+    {
+      "id": "q01_brufen_gi",
+      "pergunta": "Quais sao os efeitos secundarios gastrointestinais do ibuprofeno?",
+      "referencia": "O ibuprofeno pode causar efeitos gastrointestinais como ulcera no estomago ou duodeno e hemorragia gastrointestinal, que se pode manifestar por dor abdominal intensa ou persistente e/ou fezes pretas, por vezes sem sintomas de aviso previos. O risco e maior com doses elevadas e tratamentos prolongados.",
+      "fonte_esperada": "Brufen",
+      "termos_chave": ["fezes pretas", "duodeno"],
+      "ficheiro_verificacao": "Brufen_FI.pdf",
+      "controlo": false
+    },
+    {
+      "id": "q02_brufen_gravidez",
+      "pergunta": "Posso tomar Brufen no terceiro trimestre da gravidez?",
+      "referencia": "Nao. O Brufen (ibuprofeno) esta contraindicado no terceiro trimestre da gravidez.",
+      "fonte_esperada": "Brufen",
+      "termos_chave": ["terceiro trimestre de gravidez"],
+      "ficheiro_verificacao": "Brufen_FI.pdf",
+      "controlo": false
+    },
+    {
+      "id": "q03_clamoxyl_indicacao",
+      "pergunta": "O que e o Clamoxyl e para que e utilizado?",
+      "referencia": "O Clamoxyl e um antibiotico cuja substancia ativa e a amoxicilina, que pertence ao grupo das penicilinas. E utilizado para tratar infecoes causadas por bacterias em diferentes partes do corpo.",
+      "fonte_esperada": "Clamoxyl",
+      "termos_chave": ["penicilinas", "amoxicilina"],
+      "ficheiro_verificacao": "Clamoxyl_FI.pdf",
+      "controlo": false
+    },
+    {
+      "id": "q04_varfine_interacoes",
+      "pergunta": "Que medicamentos aumentam o risco de hemorragia quando tomados com Varfine?",
+      "referencia": "Os anti-inflamatorios nao esteroides (AINE), a aspirina e outros medicamentos anticoagulantes aumentam o risco de hemorragia quando tomados em simultaneo com o Varfine (varfarina).",
+      "fonte_esperada": "Varfine",
+      "termos_chave": ["anti-inflamat", "aspirina"],
+      "ficheiro_verificacao": "Varfine_FI.pdf",
+      "controlo": false
+    },
+    {
+      "id": "q05_omeprazol_indicacao",
+      "pergunta": "Para que e utilizado o omeprazol em adultos?",
+      "referencia": "Em adultos, o omeprazol e utilizado no tratamento da doenca de refluxo gastroesofagico (DRGE), em que o acido do estomago escapa para o esofago causando dor e inflamacao, e no tratamento de ulceras.",
+      "fonte_esperada": "Omeprazol",
+      "termos_chave": ["refluxo gastroesof"],
+      "ficheiro_verificacao": "Omeprazol_FI.pdf",
+      "controlo": false
+    },
+    {
+      "id": "q06_ventilan_indicacao",
+      "pergunta": "Para que e utilizado o Ventilan?",
+      "referencia": "O Ventilan (salbutamol) e utilizado no alivio do broncospasmo grave associado a asma ou bronquite e no tratamento do estado de mal-asmatico. E tambem utilizado em mulheres que entraram de forma inesperada em trabalho de parto precoce.",
+      "fonte_esperada": "Ventilan",
+      "termos_chave": ["broncospasmo", "mal-asm"],
+      "ficheiro_verificacao": "Ventilan_FI.pdf",
+      "controlo": false
+    },
+    {
+      "id": "q07_guideline_pac",
+      "pergunta": "Qual e o antibiotico de primeira linha na pneumonia adquirida na comunidade em ambulatorio?",
+      "referencia": "Como primeira linha recomenda-se a amoxicilina, 500 mg de 8 em 8 horas. Em alternativa, se houver intolerancia a amoxicilina e/ou epidemia por Mycoplasma pneumoniae: azitromicina 500 mg por dia, claritromicina 500 mg de 12 em 12 horas, ou doxiciclina.",
+      "fonte_esperada": "guideline_antibioterapia",
+      "termos_chave": ["amoxicilina, 500mg, 8/8 horas"],
+      "ficheiro_verificacao": "guideline_antibioterapia.pdf",
+      "controlo": false
+    },
+    {
+      "id": "q08_interacao_cruzada",
+      "pergunta": "Posso tomar ibuprofeno em simultaneo com varfarina?",
+      "referencia": "Nao e recomendado sem indicacao medica: os anti-inflamatorios nao esteroides (AINE), como o ibuprofeno, aumentam o risco de hemorragia quando tomados com anticoagulantes como a varfarina.",
+      "fonte_esperada": "Varfine",
+      "termos_chave": ["AINE", "anticoagula"],
+      "ficheiro_verificacao": "Varfine_FI.pdf",
+      "controlo": false
+    },
+    {
+      "id": "q09_benuron_indicacao",
+      "pergunta": "Para que serve o Ben-u-ron?",
+      "referencia": "O Ben-u-ron tem como substancia ativa o paracetamol e e utilizado no tratamento da dor e da febre.",
+      "fonte_esperada": "Ben-u-ron",
+      "termos_chave": ["paracetamol"],
+      "ficheiro_verificacao": "Ben-u-ron_FI.pdf",
+      "controlo": false
+    },
+    {
+      "id": "q10_varfine_alimentos",
+      "pergunta": "Que alimentos ou bebidas devo evitar enquanto tomo Varfine?",
+      "referencia": "Deve evitar produtos de arando (por exemplo, sumo de arando), pois podem aumentar o INR e a probabilidade de aparecimento de hemorragia.",
+      "fonte_esperada": "Varfine",
+      "termos_chave": ["arando"],
+      "ficheiro_verificacao": "Varfine_FI.pdf",
+      "controlo": false
+    },
+    {
+      "id": "q11_paracetamol_prolongado",
+      "pergunta": "Que problema grave foi notificado com o uso prolongado de paracetamol em doses regulares?",
+      "referencia": "Foi notificada acidose metabolica, uma anomalia no sangue e nos fluidos, em doentes que utilizam paracetamol em doses regulares durante um periodo prolongado.",
+      "fonte_esperada": "Ben-u-ron",
+      "termos_chave": ["acidose metab"],
+      "ficheiro_verificacao": "Ben-u-ron_FI.pdf",
+      "controlo": false
+    },
+    {
+      "id": "q12_controlo_fora_corpus",
+      "pergunta": "Qual e a posologia recomendada da insulina em diabeticos tipo 1?",
+      "referencia": "A documentacao disponivel nao contem informacao suficiente para responder a esta questao.",
+      "fonte_esperada": null,
+      "termos_chave": [],
+      "ficheiro_verificacao": null,
+      "controlo": true
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+C:\Users\UM3402\repos\rag-farmaceutico\eval\avaliar_ragas.py:33: DeprecationWarning: `langchain-community` is being sunset and is no longer actively maintained. See https://github.com/langchain-ai/langchain-community/issues/674 for details and migration guidance toward standalone integration packages.
+  from langchain_community.chat_models.vertexai import ChatVertexAI  # noqa: F401
+[output_guard] Fidelidade: 1.00 (threshold: 0.85)
+[pipeline 1/12] q01_brufen_gi (21.3s, suficiente=True)
+[output_guard] Fidelidade: 1.00 (threshold: 0.85)
+[pipeline 2/12] q02_brufen_gravidez (23.8s, suficiente=True)
+[output_guard] Fidelidade: 1.00 (threshold: 0.85)
+[pipeline 3/12] q03_clamoxyl_indicacao (20.8s, suficiente=True)
+[output_guard] Fidelidade: 0.92 (threshold: 0.85)
+[pipeline 4/12] q04_varfine_interacoes (34.8s, suficiente=True)
+[output_guard] Fidelidade: 1.00 (threshold: 0.85)
+[pipeline 5/12] q05_omeprazol_indicacao (21.6s, suficiente=True)
+[output_guard] Fidelidade: 1.00 (threshold: 0.85)
+[pipeline 6/12] q06_ventilan_indicacao (19.5s, suficiente=True)
+[output_guard] Fidelidade: 0.95 (threshold: 0.85)
+[pipeline 7/12] q07_guideline_pac (34.9s, suficiente=True)
+[crag] Avaliacao: relevante=True, confianca=0.85
+[output_guard] Fidelidade: 0.85 (threshold: 0.85)
+[pipeline 8/12] q08_interacao_cruzada (33.4s, suficiente=True)
+[output_guard] Fidelidade: 1.00 (threshold: 0.85)
+[pipeline 9/12] q09_benuron_indicacao (19.5s, suficiente=True)
+[output_guard] Fidelidade: 0.95 (threshold: 0.85)
+[pipeline 10/12] q10_varfine_alimentos (28.7s, suficiente=True)
+[output_guard] Fidelidade: 0.98 (threshold: 0.85)
+[pipeline 11/12] q11_paracetamol_prolongado (30.8s, suficiente=True)
+[crag] Avaliacao: relevante=False, confianca=0.98
+[crag] Contexto insuficiente. A reformular query...
+[crag] Query reformulada: 'Qual e a posologia recomendada da insulina em diabeticos tipo 1?' -> 'Qual é o esquema posológico e a dose diária recomendada de insulina (insulina humana, insulina análoga de ação rápida, insulina basal) para o tratamento da diabetes mellitus tipo 1, incluindo regimes de insulinoterapia intensiva e administração subcutânea?'
+[crag] Re-avaliacao: relevante=False, confianca=0.99
+[output_guard] Fidelidade: 1.00 (threshold: 0.85)
+[pipeline 12/12] q12_controlo_fora_corpus (38.6s, suficiente=False)
+Cache de respostas escrito em C:\Users\UM3402\repos\rag-farmaceutico\eval\cache_respostas.json
+
+A calcular metricas RAGAS (LLM-juiz)...
+C:\Users\UM3402\AppData\Local\Programs\Python\Python312\Lib\site-packages\instructor\providers\gemini\client.py:5: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai  # type: ignore[import-not-found]
+C:\Users\UM3402\repos\rag-farmaceutico\eval\avaliar_ragas.py:116: DeprecationWarning: Importing AnswerRelevancy from 'ragas.metrics' is deprecated and will be removed in v1.0. Please use 'ragas.metrics.collections' instead. Example: from ragas.metrics.collections import AnswerRelevancy
+  from ragas.metrics import (
+C:\Users\UM3402\repos\rag-farmaceutico\eval\avaliar_ragas.py:116: DeprecationWarning: Importing Faithfulness from 'ragas.metrics' is deprecated and will be removed in v1.0. Please use 'ragas.metrics.collections' instead. Example: from ragas.metrics.collections import Faithfulness
+  from ragas.metrics import (
+C:\Users\UM3402\repos\rag-farmaceutico\eval\avaliar_ragas.py:116: DeprecationWarning: Importing LLMContextPrecisionWithReference from 'ragas.metrics' is deprecated and will be removed in v1.0. Please use 'ragas.metrics.collections' instead. Example: from ragas.metrics.collections import LLMContextPrecisionWithReference
+  from ragas.metrics import (
+C:\Users\UM3402\repos\rag-farmaceutico\eval\avaliar_ragas.py:116: DeprecationWarning: Importing LLMContextRecall from 'ragas.metrics' is deprecated and will be removed in v1.0. Please use 'ragas.metrics.collections' instead. Example: from ragas.metrics.collections import LLMContextRecall
+  from ragas.metrics import (
+C:\Users\UM3402\repos\rag-farmaceutico\eval\avaliar_ragas.py:126: DeprecationWarning: LangchainLLMWrapper is deprecated and will be removed in a future version. Use llm_factory instead: from openai import OpenAI; from ragas.llms import llm_factory; llm = llm_factory('gpt-4o-mini', client=OpenAI(api_key='...'))
+  juiz = LangchainLLMWrapper(ChatGoogleGenerativeAI(
+C:\Users\UM3402\repos\rag-farmaceutico\eval\avaliar_ragas.py:149: DeprecationWarning: LangchainEmbeddingsWrapper is deprecated and will be removed in a future version. Use the modern embedding providers instead: embedding_factory('openai', model='text-embedding-3-small', client=openai_client) or from ragas.embeddings import OpenAIEmbeddings, GoogleEmbeddings, HuggingFaceEmbeddings
+  embeddings = LangchainEmbeddingsWrapper(_EmbeddingsPorTexto(criar_embedder()))

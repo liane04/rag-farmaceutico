@@ -1,0 +1,135 @@
+{
+  "data": "2026-06-12T00:18:22",
+  "modo_pipeline": "online",
+  "juiz": "claude-sonnet-4-6 (partilha o modelo do gerador — auto-avaliacao parcial, limitacao reconhecida; as metricas sao ancoradas nos contextos/referencias)",
+  "n_perguntas": 12,
+  "n_nucleo": 11,
+  "medias_nucleo": {
+    "faithfulness": 0.874,
+    "answer_relevancy": 0.898,
+    "llm_context_precision_with_reference": 1.0,
+    "context_recall": 0.894
+  },
+  "por_pergunta": [
+    {
+      "id": "q01_brufen_gi",
+      "controlo": false,
+      "contexto_suficiente": true,
+      "duracao_s": 21.3,
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.913,
+      "llm_context_precision_with_reference": 1.0,
+      "context_recall": 0.333
+    },
+    {
+      "id": "q02_brufen_gravidez",
+      "controlo": false,
+      "contexto_suficiente": true,
+      "duracao_s": 23.8,
+      "faithfulness": 0.812,
+      "answer_relevancy": 0.881,
+      "llm_context_precision_with_reference": 1.0,
+      "context_recall": 1.0
+    },
+    {
+      "id": "q03_clamoxyl_indicacao",
+      "controlo": false,
+      "contexto_suficiente": true,
+      "duracao_s": 20.8,
+      "faithfulness": 0.952,
+      "answer_relevancy": 0.923,
+      "llm_context_precision_with_reference": 1.0,
+      "context_recall": 1.0
+    },
+    {
+      "id": "q04_varfine_interacoes",
+      "controlo": false,
+      "contexto_suficiente": true,
+      "duracao_s": 34.8,
+      "faithfulness": 0.933,
+      "answer_relevancy": 0.993,
+      "llm_context_precision_with_reference": 1.0,
+      "context_recall": 1.0
+    },
+    {
+      "id": "q05_omeprazol_indicacao",
+      "controlo": false,
+      "contexto_suficiente": true,
+      "duracao_s": 21.6,
+      "faithfulness": 0.714,
+      "answer_relevancy": 0.925,
+      "llm_context_precision_with_reference": 1.0,
+      "context_recall": 1.0
+    },
+    {
+      "id": "q06_ventilan_indicacao",
+      "controlo": false,
+      "contexto_suficiente": true,
+      "duracao_s": 19.5,
+      "faithfulness": 0.786,
+      "answer_relevancy": 0.849,
+      "llm_context_precision_with_reference": 1.0,
+      "context_recall": 1.0
+    },
+    {
+      "id": "q07_guideline_pac",
+      "controlo": false,
+      "contexto_suficiente": true,
+      "duracao_s": 34.9,
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.951,
+      "llm_context_precision_with_reference": 1.0,
+      "context_recall": 0.5
+    },
+    {
+      "id": "q08_interacao_cruzada",
+      "controlo": false,
+      "contexto_suficiente": true,
+      "duracao_s": 33.4,
+      "faithfulness": 0.417,
+      "answer_relevancy": 0.943,
+      "llm_context_precision_with_reference": 1.0,
+      "context_recall": 1.0
+    },
+    {
+      "id": "q09_benuron_indicacao",
+      "controlo": false,
+      "contexto_suficiente": true,
+      "duracao_s": 19.5,
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.892,
+      "llm_context_precision_with_reference": 1.0,
+      "context_recall": 1.0
+    },
+    {
+      "id": "q10_varfine_alimentos",
+      "controlo": false,
+      "contexto_suficiente": true,
+      "duracao_s": 28.7,
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.853,
+      "llm_context_precision_with_reference": 1.0,
+      "context_recall": 1.0
+    },
+    {
+      "id": "q11_paracetamol_prolongado",
+      "controlo": false,
+      "contexto_suficiente": true,
+      "duracao_s": 30.8,
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.75,
+      "llm_context_precision_with_reference": 1.0,
+      "context_recall": 1.0
+    },
+    {
+      "id": "q12_controlo_fora_corpus",
+      "controlo": true,
+      "contexto_suficiente": false,
+      "duracao_s": 38.6,
+      "faithfulness": 0.462,
+      "answer_relevancy": 0.0,
+      "llm_context_precision_with_reference": 0.0,
+      "context_recall": 1.0
+    }
+  ]
+}
